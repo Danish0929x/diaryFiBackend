@@ -3,6 +3,8 @@ const passport = require("passport")
 const { body } = require("express-validator")
 const authController = require("../controllers/auth.controller")
 const auth = require("../middleware/auth")
+const userModel = require("../models/user.model")
+
 
 const router = express.Router()
 
@@ -59,6 +61,107 @@ router.get(
    }),
   authController.googleSuccess,
 )
+
+router.post("/google", async (req, res) => {
+  try {
+    console.log("=== Google Token Verification Route ===");
+    const { idToken } = req.body;
+    
+    if (!idToken) {
+      return res.status(400).json({
+        success: false,
+        message: "ID token is required"
+      });
+    }
+
+    console.log("Received ID Token:", idToken.substring(0, 50) + "...");
+
+    // Verify the token with Google
+    const { OAuth2Client } = require('google-auth-library');
+    const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+    
+    const ticket = await client.verifyIdToken({
+      idToken: idToken,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+    
+    const payload = ticket.getPayload();
+    console.log("Google payload:", payload);
+    
+    const { sub: googleId, email, name, picture } = payload;
+
+    // Find or create user (similar to your existing Google strategy logic)
+    let user = await userModel.findOneAndUpdate(
+      { googleId },
+      { $set: { lastLogin: new Date() } },
+      { new: true }
+    );
+
+    if (user) {
+      console.log("Existing Google user found");
+    } else {
+      // Check if user exists with this email
+      user = await userModel.findOneAndUpdate(
+        { email },
+        {
+          $set: {
+            googleId,
+            lastLogin: new Date(),
+            isEmailVerified: true,
+            ...(picture && !user?.avatar ? { avatar: picture } : {})
+          },
+          $addToSet: { authMethods: "google" }
+        },
+        { new: true }
+      );
+
+      if (!user) {
+        // Create new user
+        console.log("Creating new Google user");
+        user = await userModel.create({
+          googleId,
+          name,
+          email,
+          avatar: picture || "",
+          authMethods: ["google"],
+          isEmailVerified: true,
+          lastLogin: new Date()
+        });
+      }
+    }
+
+    // Generate JWT token
+    const jwt = require('jsonwebtoken');
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
+
+    // Update last login
+    await userModel.findByIdAndUpdate(user._id, {
+      lastLogin: new Date()
+    });
+
+    res.json({
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        avatar: user.avatar,
+        authMethods: user.authMethods,
+        isEmailVerified: user.isEmailVerified
+      }
+    });
+
+  } catch (error) {
+    console.error("❌ Google token verification error:", error);
+    res.status(400).json({
+      success: false,
+      message: "Google authentication failed",
+      error: error.message
+    });
+  }
+});
+
+
 
 // Apple OAuth routes with improved error handling
 router.get(

@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
 require('dotenv').config();
+const passport = require("passport")
 const session = require("express-session");
 
 // Import your configurations
@@ -9,9 +10,9 @@ const connectDB = require('./config/db');
 const { cloudinary, storage } = require('./config/cloudinary');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5000;
 
-// Enhanced CORS Configuration for React Native
+// Simplified and more reliable CORS Configuration
 const corsOptions = {
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
@@ -33,8 +34,8 @@ const corsOptions = {
       return callback(null, true);
     }
     
-    // Check if origin is in allowed list
-    if (allowedOrigins.indexOf(origin) !== -1) {
+    // Check if origin is in allowed list or allow all in development
+    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV !== 'production') {
       callback(null, true);
     } else {
       console.log('Origin not allowed by CORS:', origin);
@@ -50,39 +51,35 @@ const corsOptions = {
     'Accept', 
     'Authorization',
     'Cache-Control',
-    'Pragma'
+    'Pragma',
+    'X-CSRF-Token'
   ],
   exposedHeaders: ['set-cookie'],
+  optionsSuccessStatus: 200, // Some legacy browsers choke on 204
   maxAge: 86400 // 24 hours
 };
 
-// Apply CORS middleware
+// Apply CORS middleware FIRST
 app.use(cors(corsOptions));
 
-// Additional CORS headers for React Native compatibility
+// Additional manual CORS headers (simplified to avoid conflicts)
 app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  
-  // Set CORS headers explicitly
-  if (origin) {
-    res.header('Access-Control-Allow-Origin', origin);
-  } else {
-    res.header('Access-Control-Allow-Origin', '*');
-  }
-  
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-  res.header(
-    'Access-Control-Allow-Headers',
-    'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control, Pragma'
-  );
-
-  // Handle preflight requests
+  // Handle preflight requests first
   if (req.method === 'OPTIONS') {
-    console.log('Handling preflight request from:', origin);
+    console.log('Handling preflight request from:', req.headers.origin);
+    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control, Pragma');
     return res.status(200).end();
   }
-
+  
+  // Ensure CORS headers are set for all responses
+  if (req.headers.origin) {
+    res.header('Access-Control-Allow-Origin', req.headers.origin);
+  }
+  res.header('Access-Control-Allow-Credentials', 'true');
+  
   next();
 });
 
@@ -90,16 +87,16 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Session middleware
+// Session middleware with updated configuration
 app.use(
   session({
-    secret: process.env.SESSION_SECRET || 'your-secret-key', // Add fallback
+    secret: process.env.SESSION_SECRET || 'your-secret-key',
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: process.env.NODE_ENV === 'production', // Only secure in production
+      secure: process.env.NODE_ENV === 'production' ? true : false,
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
-      httpOnly: true,
+      httpOnly: false, // Set to false for frontend access if needed
       sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
     },
   }),
@@ -110,12 +107,22 @@ connectDB();
 
 // Test route to check CORS
 app.get('/api/test-cors', (req, res) => {
+  console.log('CORS test route hit from origin:', req.headers.origin);
   res.json({
     message: 'CORS is working!',
     origin: req.headers.origin,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    headers: req.headers
   });
 });
+
+// Passport middleware
+app.use(passport.initialize())
+app.use(passport.session())
+
+// Passport config
+require("./config/passport")(passport)
+
 
 // Routes
 app.use("/api/auth", require("./routes/auth.route.js"));
@@ -132,19 +139,19 @@ app.get('/', (req, res) => {
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error('Error:', err.stack);
+  
+  // Ensure CORS headers are present even in error responses
+  if (req.headers.origin) {
+    res.header('Access-Control-Allow-Origin', req.headers.origin);
+    res.header('Access-Control-Allow-Credentials', 'true');
+  }
+  
   res.status(500).json({
     message: 'Something went wrong!',
     error: process.env.NODE_ENV === 'production' ? {} : err.message
   });
 });
 
-// 404 handler
-app.use((req, res) => {
-  res.status(404).json({
-    message: 'Route not found',
-    path: req.originalUrl
-  });
-});
 
 // Graceful shutdown
 process.on('SIGINT', async () => {

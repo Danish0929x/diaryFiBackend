@@ -1,7 +1,7 @@
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
 const AppleStrategy = require("passport-apple").Strategy;
 const jwt = require('jsonwebtoken');
-const User = require("../models/User");
+const userModel = require("../models/user.model");
 
 module.exports = (passport) => {
   // Google Strategy (existing - keep as is)
@@ -15,7 +15,7 @@ module.exports = (passport) => {
       },
       async (req, accessToken, refreshToken, profile, done) => {
         try {
-          let user = await User.findOneAndUpdate(
+          let user = await userModel.findOneAndUpdate(
             { googleId: profile.id },
             { $set: { lastLogin: new Date() } },
             { new: true }
@@ -24,7 +24,7 @@ module.exports = (passport) => {
           if (user) return done(null, user);
 
           const email = profile.emails[0].value;
-          user = await User.findOneAndUpdate(
+          user = await userModel.findOneAndUpdate(
             { email },
             {
               $set: {
@@ -41,14 +41,14 @@ module.exports = (passport) => {
 
           if (user) {
             if (!user.isEmailVerified) {
-              await User.findByIdAndUpdate(user._id, {
+              await userModel.findByIdAndUpdate(user._id, {
                 $set: { isEmailVerified: true }
               });
             }
             return done(null, user);
           }
 
-          user = await User.create({
+          user = await userModel.create({
             googleId: profile.id,
             name: profile.displayName,
             email,
