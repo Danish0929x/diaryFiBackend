@@ -92,6 +92,7 @@ userSchema.methods.comparePassword = async function (candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
 };
 
+
 // Generate email verification token
 userSchema.methods.createVerificationToken = function () {
   const token = crypto.randomBytes(32).toString("hex");
