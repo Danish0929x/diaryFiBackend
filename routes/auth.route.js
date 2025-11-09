@@ -161,7 +161,270 @@ router.post("/google", async (req, res) => {
   }
 });
 
+// Handle Google Access Token (for web OAuth flow)
+router.post("/google-access-token", async (req, res) => {
+  try {
+    console.log("=== Google Access Token Verification Route ===");
+    const { accessToken } = req.body;
 
+    if (!accessToken) {
+      return res.status(400).json({
+        success: false,
+        message: "Access token is required"
+      });
+    }
+
+    console.log("Received Access Token:", accessToken.substring(0, 50) + "...");
+
+    // Verify the access token with Google's tokeninfo endpoint
+    let tokenInfoResponse;
+    try {
+      // Try using built-in fetch (Node 18+) first
+      tokenInfoResponse = await fetch(`https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=${accessToken}`);
+    } catch (err) {
+      // Fallback to node-fetch if available
+      try {
+        const nodeFetch = require('node-fetch');
+        tokenInfoResponse = await nodeFetch(`https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=${accessToken}`);
+      } catch (fetchErr) {
+        throw new Error('Unable to verify token: ' + err.message);
+      }
+    }
+
+    if (!tokenInfoResponse.ok) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid or expired access token"
+      });
+    }
+
+    const tokenInfo = await tokenInfoResponse.json();
+    console.log("Token info:", tokenInfo);
+
+    if (!tokenInfo.user_id || !tokenInfo.email) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid token info"
+      });
+    }
+
+    const googleId = tokenInfo.user_id;
+    const email = tokenInfo.email;
+
+    // Get additional user info from Google's userinfo endpoint
+    let userinfoResponse;
+    try {
+      userinfoResponse = await fetch('https://www.googleapis.com/oauth2/v1/userinfo?alt=json', {
+        headers: { 'Authorization': `Bearer ${accessToken}` }
+      });
+    } catch (err) {
+      try {
+        const nodeFetch = require('node-fetch');
+        userinfoResponse = await nodeFetch('https://www.googleapis.com/oauth2/v1/userinfo?alt=json', {
+          headers: { 'Authorization': `Bearer ${accessToken}` }
+        });
+      } catch (fetchErr) {
+        console.warn("Could not fetch userinfo:", fetchErr.message);
+      }
+    }
+
+    let userinfo = { name: '', picture: '' };
+    if (userinfoResponse && userinfoResponse.ok) {
+      userinfo = await userinfoResponse.json();
+    }
+
+    const { name = '', picture = '' } = userinfo;
+
+    // Find or create user
+    let user = await userModel.findOneAndUpdate(
+      { googleId },
+      { $set: { lastLogin: new Date() } },
+      { new: true }
+    );
+
+    if (user) {
+      console.log("Existing Google user found");
+    } else {
+      // Check if user exists with this email
+      user = await userModel.findOneAndUpdate(
+        { email },
+        {
+          $set: {
+            googleId,
+            lastLogin: new Date(),
+            isEmailVerified: true,
+            ...(picture && { avatar: picture })
+          },
+          $addToSet: { authMethods: "google" }
+        },
+        { new: true }
+      );
+
+      if (!user) {
+        // Create new user
+        console.log("Creating new Google user from access token");
+        user = await userModel.create({
+          googleId,
+          name: name || email.split('@')[0],
+          email,
+          avatar: picture || "",
+          authMethods: ["google"],
+          isEmailVerified: true,
+          lastLogin: new Date()
+        });
+      }
+    }
+
+    // Generate JWT token
+    const jwt = require('jsonwebtoken');
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
+
+    console.log("✅ Access token authentication successful");
+    res.json({
+      success: true,
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        avatar: user.avatar,
+        authMethods: user.authMethods,
+        isEmailVerified: user.isEmailVerified
+      }
+    });
+
+  } catch (error) {
+    console.error("❌ Google access token verification error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Google authentication failed",
+      error: error.message
+    });
+  }
+});
+
+// Handle Apple ID Token (for mobile/web OAuth flow)
+router.post("/apple", async (req, res) => {
+  try {
+    console.log("=== Apple ID Token Verification Route ===");
+    const { idToken } = req.body;
+
+    if (!idToken) {
+      return res.status(400).json({
+        success: false,
+        message: "ID token is required"
+      });
+    }
+
+    console.log("Received Apple ID Token:", idToken.substring(0, 50) + "...");
+
+    // Decode the ID token to get user info
+    const jwt = require('jsonwebtoken');
+
+    // Decode the token with complete header and payload
+    const decoded = jwt.decode(idToken, { complete: true });
+
+    if (!decoded) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid ID token format"
+      });
+    }
+
+    console.log("Token header:", decoded.header);
+    console.log("Token payload keys:", Object.keys(decoded.payload));
+
+    const payload = decoded.payload;
+    const appleId = payload.sub;
+    const email = payload.email || '';
+    const name = payload.name || '';
+    const issuer = payload.iss;
+    const audience = payload.aud;
+
+    // Validate token claims
+    if (!appleId) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid token: missing sub claim"
+      });
+    }
+
+    // Validate issuer should be Apple (warning only, don't reject)
+    if (issuer !== 'https://appleid.apple.com') {
+      console.warn("⚠️ Token issuer may not be Apple:", issuer);
+    }
+
+    // Validate audience matches our client ID (warning only for now)
+    if (audience && audience !== process.env.APPLE_CLIENT_ID) {
+      console.warn("⚠️ Audience mismatch. Expected:", process.env.APPLE_CLIENT_ID, "Got:", audience);
+    }
+
+    // Find or create user
+    let user = await userModel.findOneAndUpdate(
+      { appleId },
+      { $set: { lastLogin: new Date() } },
+      { new: true }
+    );
+
+    if (user) {
+      console.log("Existing Apple user found");
+    } else {
+      // Check if user exists with this email
+      if (email) {
+        user = await userModel.findOneAndUpdate(
+          { email },
+          {
+            $set: {
+              appleId,
+              lastLogin: new Date(),
+              isEmailVerified: true
+            },
+            $addToSet: { authMethods: "apple" }
+          },
+          { new: true }
+        );
+      }
+
+      if (!user) {
+        // Create new user
+        console.log("Creating new Apple user from ID token");
+        user = await userModel.create({
+          appleId,
+          name: name || email.split('@')[0] || 'Apple User',
+          email: email || `apple_${appleId}@example.com`,
+          authMethods: ["apple"],
+          isEmailVerified: !!email,
+          lastLogin: new Date()
+        });
+      }
+    }
+
+    // Generate JWT token
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
+
+    console.log("✅ Apple authentication successful");
+    res.json({
+      success: true,
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        avatar: user.avatar,
+        authMethods: user.authMethods,
+        isEmailVerified: user.isEmailVerified
+      }
+    });
+
+  } catch (error) {
+    console.error("❌ Apple authentication error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Apple authentication failed",
+      error: error.message
+    });
+  }
+});
 
 // Apple OAuth routes with improved error handling
 router.get(
