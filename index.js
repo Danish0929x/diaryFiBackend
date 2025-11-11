@@ -126,6 +126,7 @@ require("./config/passport")(passport)
 
 // Routes
 app.use("/api/auth", require("./routes/auth.route.js"));
+app.use("/api/entries", require("./routes/entry.route.js"));
 
 // Basic routes
 app.get('/', (req, res) => {
