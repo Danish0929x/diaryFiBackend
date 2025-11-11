@@ -1,12 +1,14 @@
 const jwt = require("jsonwebtoken");
-const crypto = require("crypto");
 const { validationResult } = require("express-validator");
 const User = require("../models/user.model");
-const { sendVerificationEmail, sendPasswordResetEmail } = require("../utils/emailService");
+const {
+  sendPasswordResetEmail,
+  sendOtpEmail,
+} = require("../utils/emailService");
 
 // Helper functions
-const generateToken = (userId) => jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: "7d" });
-const generateVerificationToken = () => crypto.randomBytes(32).toString("hex");
+const generateToken = (userId) =>
+  jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: "7d" });
 
 // Register User with Email/Password
 const register = async (req, res) => {
@@ -23,108 +25,64 @@ const register = async (req, res) => {
     const { name, email, password } = req.body;
 
     // Check existing user with atomic operation
-    const existingUser = await User.findOne({ email }).select('+authMethods');
+    const existingUser = await User.findOne({ email }).select("+authMethods");
     if (existingUser) {
       // Scenario 1: Existing Google user wants to add email/password
-      if (existingUser.authMethods.includes("google") && !existingUser.authMethods.includes("email")) {
-        const verificationToken = generateVerificationToken();
-        await User.findByIdAndUpdate(existingUser._id, {
-          emailVerificationToken: verificationToken,
-          emailVerificationExpires: new Date(Date.now() + 24 * 60 * 60 * 1000),
-          password // Will be hashed via pre-save hook
-        });
+      if (
+        existingUser.authMethods.includes("google") &&
+        !existingUser.authMethods.includes("email")
+      ) {
+        // Update password and generate OTP
+        existingUser.password = password; // Will be hashed via pre-save hook
+        const otp = existingUser.createEmailOtp();
+        await existingUser.save();
 
-        await sendVerificationEmail(email, verificationToken, "link-account");
+        await sendOtpEmail(email, otp, existingUser.name);
+        console.log(`✅ OTP sent to ${email} for account linking: ${otp}`);
+
         return res.status(200).json({
           success: true,
-          message: "Please verify your email to link password to your Google account",
+          message:
+            "Please verify your email with the OTP sent to link password to your Google account",
           requiresVerification: true,
-          linkingAccount: true
+          linkingAccount: true,
+          email: email,
         });
       }
       return res.status(400).json({
         success: false,
-        message: "Account already exists with this email"
+        message: "Account already exists with this email",
       });
     }
 
-    // New email/password registration
-    const verificationToken = generateVerificationToken();
-    await User.create({
+    // New email/password registration with OTP
+    const user = await User.create({
       name,
       email,
       password,
       authMethods: ["email"],
-      emailVerificationToken: verificationToken,
-      emailVerificationExpires: new Date(Date.now() + 24 * 60 * 60 * 1000),
-      isEmailVerified: false
+      isEmailVerified: false,
     });
 
-    await sendVerificationEmail(email, verificationToken, "verify-email");
+    // Generate and send OTP
+    const otp = user.createEmailOtp();
+    await user.save();
+    await sendOtpEmail(email, otp, name);
+
+    console.log(`✅ OTP sent to ${email}: ${otp}`); // For development/testing
+
     return res.status(201).json({
       success: true,
-      message: "Registration successful! Please verify your email.",
-      requiresVerification: true
+      message:
+        "Registration successful! Please check your email for the verification code.",
+      requiresVerification: true,
+      email: email,
     });
-
   } catch (error) {
     console.error("Registration error:", error);
     return res.status(500).json({
       success: false,
-      message: error.message || "Registration failed"
-    });
-  }
-};
-
-// Verify Email
-const verifyEmail = async (req, res) => {
-  try {
-    const { token, action } = req.body;
-
-    const user = await User.findOneAndUpdate(
-      {
-        emailVerificationToken: token,
-        emailVerificationExpires: { $gt: Date.now() }
-      },
-      {
-        $set: {
-          isEmailVerified: true,
-          emailVerificationToken: null,
-          emailVerificationExpires: null
-        },
-        ...(action === "link-account" && { $addToSet: { authMethods: "email" } })
-      },
-      { new: true }
-    );
-
-    if (!user) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid or expired verification token"
-      });
-    }
-
-    const authToken = generateToken(user._id);
-    return res.json({
-      success: true,
-      message: action === "link-account" 
-        ? "Account successfully linked!" 
-        : "Email verified successfully!",
-      token: authToken,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        isEmailVerified: true,
-        authMethods: user.authMethods
-      }
-    });
-
-  } catch (error) {
-    console.error("Verification error:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Email verification failed"
+      message: error.message || "Registration failed",
     });
   }
 };
@@ -143,12 +101,12 @@ const login = async (req, res) => {
 
     const { email, password } = req.body;
     console.log(req.body);
-    const user = await User.findOne({ email }).select('+password +authMethods');
+    const user = await User.findOne({ email }).select("+password +authMethods");
 
     if (!user) {
       return res.status(400).json({
         success: false,
-        message: "Invalid credentials"
+        message: "Invalid credentials",
       });
     }
 
@@ -158,7 +116,7 @@ const login = async (req, res) => {
         success: false,
         message: "Account uses Google login. Please sign in with Google.",
         suggestGoogleLogin: true,
-        requiresPasswordSetup: !user.authMethods.includes("email")
+        requiresPasswordSetup: !user.authMethods.includes("email"),
       });
     }
 
@@ -167,14 +125,14 @@ const login = async (req, res) => {
     if (!isMatch) {
       await User.findByIdAndUpdate(user._id, {
         $inc: { loginAttempts: 1 },
-        ...(user.loginAttempts + 1 >= 5 && { 
+        ...(user.loginAttempts + 1 >= 5 && {
           isLocked: true,
-          lockUntil: new Date(Date.now() + 30 * 60 * 1000) // 30 minutes
-        })
+          lockUntil: new Date(Date.now() + 30 * 60 * 1000), // 30 minutes
+        }),
       });
       return res.status(400).json({
         success: false,
-        message: "Invalid credentials"
+        message: "Invalid credentials",
       });
     }
 
@@ -183,7 +141,7 @@ const login = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Please verify your email first",
-        requiresVerification: true
+        requiresVerification: true,
       });
     }
 
@@ -192,7 +150,7 @@ const login = async (req, res) => {
       user._id,
       {
         $set: { lastLogin: new Date() },
-        $unset: { loginAttempts: 1, lockUntil: 1 }
+        $unset: { loginAttempts: 1, lockUntil: 1 },
       },
       { new: true }
     );
@@ -207,15 +165,14 @@ const login = async (req, res) => {
         name: updatedUser.name,
         email: updatedUser.email,
         authMethods: updatedUser.authMethods,
-        isEmailVerified: updatedUser.isEmailVerified
-      }
+        isEmailVerified: updatedUser.isEmailVerified,
+      },
     });
-
   } catch (error) {
     console.error("Login error:", error);
     return res.status(500).json({
       success: false,
-      message: "Login failed"
+      message: "Login failed",
     });
   }
 };
@@ -230,35 +187,37 @@ const handlePasswordSetup = async (req, res) => {
       // Don't reveal if user exists
       return res.json({
         success: true,
-        message: "If account exists, password setup link sent"
+        message: "If account exists, password setup link sent",
       });
     }
 
     // Only allow for Google-only users
-    if (!user.authMethods.includes("google") || user.authMethods.includes("email")) {
+    if (
+      !user.authMethods.includes("google") ||
+      user.authMethods.includes("email")
+    ) {
       return res.json({
         success: true,
-        message: "If account exists, password setup link sent"
+        message: "If account exists, password setup link sent",
       });
     }
 
     const setupToken = generateVerificationToken();
     await User.findByIdAndUpdate(user._id, {
       passwordResetToken: setupToken,
-      passwordResetExpires: new Date(Date.now() + 60 * 60 * 1000) // 1 hour
+      passwordResetExpires: new Date(Date.now() + 60 * 60 * 1000), // 1 hour
     });
 
     await sendPasswordResetEmail(email, setupToken, "setup-password");
     return res.json({
       success: true,
-      message: "Password setup link sent if account exists"
+      message: "Password setup link sent if account exists",
     });
-
   } catch (error) {
     console.error("Password setup error:", error);
     return res.status(500).json({
       success: false,
-      message: "Failed to send password setup link"
+      message: "Failed to send password setup link",
     });
   }
 };
@@ -271,12 +230,12 @@ const resetPassword = async (req, res) => {
     const user = await User.findOneAndUpdate(
       {
         passwordResetToken: token,
-        passwordResetExpires: { $gt: Date.now() }
+        passwordResetExpires: { $gt: Date.now() },
       },
       {
         $set: { password },
         $addToSet: { authMethods: "email" },
-        $unset: { passwordResetToken: 1, passwordResetExpires: 1 }
+        $unset: { passwordResetToken: 1, passwordResetExpires: 1 },
       },
       { new: true }
     );
@@ -284,40 +243,40 @@ const resetPassword = async (req, res) => {
     if (!user) {
       return res.status(400).json({
         success: false,
-        message: "Invalid or expired token"
+        message: "Invalid or expired token",
       });
     }
 
     return res.json({
       success: true,
-      message: "Password updated successfully"
+      message: "Password updated successfully",
     });
-
   } catch (error) {
     console.error("Password reset error:", error);
     return res.status(500).json({
       success: false,
-      message: "Password reset failed"
+      message: "Password reset failed",
     });
   }
 };
 // Get Current User
 const getMe = async (req, res) => {
   try {
-    const user = await User.findById(req.user.userId).select("-password -emailVerificationToken -passwordResetToken")
+    const user = await User.findById(req.user.userId).select(
+      "-password -emailVerificationToken -passwordResetToken"
+    );
     res.json({
       success: true,
       user,
-    })
+    });
   } catch (error) {
-    console.error("Get user error:", error)
+    console.error("Get user error:", error);
     res.status(500).json({
       success: false,
       message: "Server error",
-    })
+    });
   }
-}
-
+};
 
 // Google OAuth Success
 const googleSuccess = async (req, res) => {
@@ -326,8 +285,8 @@ const googleSuccess = async (req, res) => {
       return res.redirect(`${process.env.CLIENT_URL}/login?error=auth_failed`);
     }
     // Check if Google-only user needs to set password
-    const needsPasswordSetup = 
-      req.user.authMethods.includes("google") && 
+    const needsPasswordSetup =
+      req.user.authMethods.includes("google") &&
       !req.user.authMethods.includes("email");
     const token = generateToken(req.user._id);
     const redirectUrl = needsPasswordSetup
@@ -347,8 +306,8 @@ const appleSuccess = async (req, res) => {
       return res.redirect(`${process.env.CLIENT_URL}/login?error=auth_failed`);
     }
     // Check if Apple-only user needs to set password
-    const needsPasswordSetup = 
-      req.user.authMethods.includes("apple") && 
+    const needsPasswordSetup =
+      req.user.authMethods.includes("apple") &&
       !req.user.authMethods.includes("email");
     const token = generateToken(req.user._id);
     const redirectUrl = needsPasswordSetup
@@ -361,56 +320,131 @@ const appleSuccess = async (req, res) => {
   }
 };
 
-// Resend Verification Email
-const resendVerification = async (req, res) => {
+// Verify OTP
+const verifyOtp = async (req, res) => {
   try {
-    const { email } = req.body
+    const { email, otp } = req.body;
 
-    const user = await User.findOne({ email })
-    if (!user) {
+    if (!email || !otp) {
       return res.status(400).json({
         success: false,
+        message: "Email and OTP are required",
+      });
+    }
+
+    // Find user with OTP fields
+    const user = await User.findOne({ email }).select(
+      "+emailOtp +emailOtpExpires +otpAttempts"
+    );
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
         message: "User not found",
-      })
+      });
+    }
+
+    // Verify OTP using the model method
+    const verificationResult = user.verifyOtp(otp);
+
+    if (!verificationResult.success) {
+      // Save updated attempts count
+      await user.save();
+      return res.status(400).json({
+        success: false,
+        message: verificationResult.message,
+      });
+    }
+
+    // OTP verified successfully - update user
+    user.isEmailVerified = true;
+    user.emailOtp = undefined;
+    user.emailOtpExpires = undefined;
+    user.otpAttempts = 0;
+    await user.save();
+
+    // Generate JWT token
+    const authToken = generateToken(user._id);
+
+    return res.json({
+      success: true,
+      message: "Email verified successfully!",
+      token: authToken,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        isEmailVerified: true,
+        authMethods: user.authMethods,
+      },
+    });
+  } catch (error) {
+    console.error("OTP verification error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "OTP verification failed",
+    });
+  }
+};
+
+// Resend OTP
+const resendOtp = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: "Email is required",
+      });
+    }
+
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
     }
 
     if (user.isEmailVerified) {
       return res.status(400).json({
         success: false,
         message: "Email is already verified",
-      })
+      });
     }
 
-    // Generate new verification token
-    const verificationToken = generateVerificationToken()
-    user.emailVerificationToken = verificationToken
-    user.emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
-    await user.save()
+    // Generate new OTP
+    const otp = user.createEmailOtp();
+    await user.save();
 
-    // Send verification email
-    await sendVerificationEmail(email, verificationToken, "verify-email")
+    // Send OTP email
+    await sendOtpEmail(email, otp, user.name);
 
-    res.json({
+    console.log(`✅ OTP resent to ${email}: ${otp}`); // For development/testing
+
+    return res.json({
       success: true,
-      message: "Verification email sent successfully",
-    })
+      message: "Verification code sent successfully",
+    });
   } catch (error) {
-    console.error("Resend verification error:", error)
-    res.status(500).json({
+    console.error("Resend OTP error:", error);
+    return res.status(500).json({
       success: false,
-      message: "Server error",
-    })
+      message: "Failed to resend verification code",
+    });
   }
-}
+};
 
 module.exports = {
   register,
-  verifyEmail,
+  verifyOtp,
+  resendOtp,
   login,
   forgotPassword: handlePasswordSetup, // Reused for Google/Apple users
   resetPassword,
   getMe,
   googleSuccess,
   appleSuccess,
-  resendVerification
 };

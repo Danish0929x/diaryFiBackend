@@ -47,107 +47,6 @@ const sendEmail = async (to, subject, html) => {
   }
 }
 
-const sendVerificationEmail = async (email, token, action = "verify-email") => {
-  const verificationUrl = `${process.env.CLIENT_URL}/verify-email?token=${token}&action=${action}`
-
-  const subject =
-    action === "link-account"
-      ? "Link Your Password to Adventure Safari Account"
-      : "Verify Your Adventure Safari Account"
-
-  const html = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>${subject}</title>
-    </head>
-    <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f5f5f5;">
-      <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-        <div style="background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
-          
-          <!-- Header -->
-          <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 30px; text-align: center;">
-            <h1 style="color: white; margin: 0; font-size: 28px; font-weight: bold;">
-              Adventure Safari Network
-            </h1>
-            <p style="color: rgba(255, 255, 255, 0.9); margin: 10px 0 0 0; font-size: 16px;">
-              Your Gateway to Adventure
-            </p>
-          </div>
-          
-          <!-- Content -->
-          <div style="padding: 40px 30px;">
-            <h2 style="color: #1f2937; margin-bottom: 20px; font-size: 24px;">
-              ${action === "link-account" ? "🔗 Link Your Account" : "✅ Verify Your Email"}
-            </h2>
-            
-            <p style="color: #6b7280; line-height: 1.6; margin-bottom: 25px; font-size: 16px;">
-              ${
-                action === "link-account"
-                  ? "We found an existing Adventure Safari account with your email address. Click the button below to link your password authentication to your existing Google account."
-                  : "Thank you for joining Adventure Safari Network! Please click the button below to verify your email address and activate your account."
-              }
-            </p>
-            
-            <!-- CTA Button -->
-            <div style="text-align: center; margin: 35px 0;">
-              <a href="${verificationUrl}" 
-                 style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); 
-                        color: white; 
-                        padding: 15px 40px; 
-                        text-decoration: none; 
-                        border-radius: 50px; 
-                        font-weight: bold; 
-                        font-size: 16px;
-                        display: inline-block;
-                        box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);
-                        transition: all 0.3s ease;">
-                ${action === "link-account" ? "🔗 Link Account" : "✅ Verify Email"}
-              </a>
-            </div>
-            
-            <!-- Alternative Link -->
-            <div style="background: #f9fafb; padding: 20px; border-radius: 8px; margin: 25px 0;">
-              <p style="color: #6b7280; font-size: 14px; margin: 0 0 10px 0;">
-                If the button doesn't work, copy and paste this link into your browser:
-              </p>
-              <p style="word-break: break-all; color: #3b82f6; font-size: 14px; margin: 0;">
-                <a href="${verificationUrl}" style="color: #3b82f6;">${verificationUrl}</a>
-              </p>
-            </div>
-            
-            <!-- Security Notice -->
-            <div style="border-left: 4px solid #f59e0b; padding-left: 15px; margin: 25px 0;">
-              <p style="color: #92400e; font-size: 14px; margin: 0; font-weight: 500;">
-                🔒 Security Notice
-              </p>
-              <p style="color: #6b7280; font-size: 14px; margin: 5px 0 0 0;">
-                This link will expire in 24 hours. If you didn't request this, please ignore this email.
-              </p>
-            </div>
-          </div>
-          
-          <!-- Footer -->
-          <div style="background: #f9fafb; padding: 20px 30px; border-top: 1px solid #e5e7eb;">
-            <p style="color: #9ca3af; font-size: 12px; margin: 0; text-align: center;">
-              © ${new Date().getFullYear()} Adventure Safari Network. All rights reserved.
-            </p>
-            <p style="color: #9ca3af; font-size: 12px; margin: 5px 0 0 0; text-align: center;">
-              This email was sent to ${email}
-            </p>
-          </div>
-          
-        </div>
-      </div>
-    </body>
-    </html>
-  `
-
-  return await sendEmail(email, subject, html)
-}
-
 const sendPasswordResetEmail = async (email, token) => {
   const resetUrl = `${process.env.CLIENT_URL}/reset-password?token=${token}`
 
@@ -157,98 +56,61 @@ const sendPasswordResetEmail = async (email, token) => {
     <head>
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Reset Your Adventure Safari Password</title>
+      <title>Reset Your DiaryFi Password</title>
     </head>
     <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f5f5f5;">
       <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-        <div style="background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
-          
+        <div style="background: white; border-radius: 10px;">
+
           <!-- Header -->
-          <div style="background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); padding: 30px; text-align: center;">
-            <h1 style="color: white; margin: 0; font-size: 28px; font-weight: bold;">
-              Adventure Safari Network
-            </h1>
-            <p style="color: rgba(255, 255, 255, 0.9); margin: 10px 0 0 0; font-size: 16px;">
-              Password Reset Request
-            </p>
+          <div style="background: linear-gradient(135deg, #2E5C8A 0%, #2E8BC0 100%); padding: 30px; text-align: center;">
+            <h1 style="color: white; margin: 0; font-size: 28px;">DiaryFi</h1>
+            <p style="color: rgba(255, 255, 255, 0.9); margin: 10px 0 0 0;">Password Reset Request</p>
           </div>
-          
+
           <!-- Content -->
           <div style="padding: 40px 30px;">
-            <h2 style="color: #1f2937; margin-bottom: 20px; font-size: 24px;">
-              🔑 Reset Your Password
-            </h2>
-            
-            <p style="color: #6b7280; line-height: 1.6; margin-bottom: 25px; font-size: 16px;">
-              We received a request to reset your password for your Adventure Safari Network account. 
+            <h2 style="color: #1f2937; margin-bottom: 20px;">Reset Your Password</h2>
+
+            <p style="color: #6b7280; line-height: 1.6; margin-bottom: 25px;">
+              We received a request to reset your password for your DiaryFi account.
               Click the button below to create a new password.
             </p>
-            
+
             <!-- CTA Button -->
             <div style="text-align: center; margin: 35px 0;">
-              <a href="${resetUrl}" 
-                 style="background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); 
-                        color: white; 
-                        padding: 15px 40px; 
-                        text-decoration: none; 
-                        border-radius: 50px; 
-                        font-weight: bold; 
-                        font-size: 16px;
-                        display: inline-block;
-                        box-shadow: 0 4px 15px rgba(220, 38, 38, 0.3);
-                        transition: all 0.3s ease;">
-                🔑 Reset Password
+              <a href="${resetUrl}"
+                 style="background: linear-gradient(135deg, #2E5C8A 0%, #2E8BC0 100%);
+                        color: white;
+                        padding: 15px 40px;
+                        text-decoration: none;
+                        border-radius: 10px;
+                        font-weight: bold;
+                        display: inline-block;">
+                Reset Password
               </a>
             </div>
-            
-            <!-- Alternative Link -->
-            <div style="background: #f9fafb; padding: 20px; border-radius: 8px; margin: 25px 0;">
-              <p style="color: #6b7280; font-size: 14px; margin: 0 0 10px 0;">
-                If the button doesn't work, copy and paste this link into your browser:
-              </p>
-              <p style="word-break: break-all; color: #3b82f6; font-size: 14px; margin: 0;">
-                <a href="${resetUrl}" style="color: #3b82f6;">${resetUrl}</a>
-              </p>
-            </div>
-            
+
             <!-- Security Notice -->
-            <div style="border-left: 4px solid #dc2626; padding-left: 15px; margin: 25px 0;">
-              <p style="color: #991b1b; font-size: 14px; margin: 0; font-weight: 500;">
-                🔒 Security Notice
-              </p>
-              <p style="color: #6b7280; font-size: 14px; margin: 5px 0 0 0;">
-                This link will expire in 1 hour. If you didn't request this password reset, please ignore this email and your password will remain unchanged.
-              </p>
-            </div>
-            
-            <!-- Help Section -->
-            <div style="background: #eff6ff; padding: 20px; border-radius: 8px; margin: 25px 0;">
-              <p style="color: #1e40af; font-size: 14px; margin: 0 0 5px 0; font-weight: 500;">
-                💡 Need Help?
-              </p>
-              <p style="color: #6b7280; font-size: 14px; margin: 0;">
-                If you're having trouble accessing your account, please contact our support team.
-              </p>
-            </div>
+            <p style="color: #6b7280; font-size: 14px; margin: 25px 0 0 0;">
+              This link will expire in 1 hour. If you didn't request this password reset, please ignore this email.
+            </p>
           </div>
-          
+
           <!-- Footer -->
-          <div style="background: #f9fafb; padding: 20px 30px; border-top: 1px solid #e5e7eb;">
+          <div style="background: #f9fafb; padding: 20px 30px;">
             <p style="color: #9ca3af; font-size: 12px; margin: 0; text-align: center;">
-              © ${new Date().getFullYear()} Adventure Safari Network. All rights reserved.
-            </p>
-            <p style="color: #9ca3af; font-size: 12px; margin: 5px 0 0 0; text-align: center;">
-              This email was sent to ${email}
+              © ${new Date().getFullYear()} DiaryFi. All rights reserved.
             </p>
           </div>
-          
+
         </div>
       </div>
     </body>
     </html>
   `
 
-  return await sendEmail(email, "Reset Your Adventure Safari Password", html)
+  return await sendEmail(email, "Reset Your DiaryFi Password", html)
 }
 
 const sendWelcomeEmail = async (email, name) => {
@@ -258,85 +120,150 @@ const sendWelcomeEmail = async (email, name) => {
     <head>
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Welcome to Adventure Safari Network</title>
+      <title>Welcome to DiaryFi</title>
     </head>
     <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f5f5f5;">
       <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-        <div style="background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
-          
+        <div style="background: white; border-radius: 10px;">
+
           <!-- Header -->
-          <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px; text-align: center;">
-            <h1 style="color: white; margin: 0; font-size: 28px; font-weight: bold;">
-              Adventure Safari Network
-            </h1>
-            <p style="color: rgba(255, 255, 255, 0.9); margin: 10px 0 0 0; font-size: 16px;">
-              Welcome to Your Adventure Journey!
-            </p>
+          <div style="background: linear-gradient(135deg, #2E5C8A 0%, #2E8BC0 100%); padding: 30px; text-align: center;">
+            <h1 style="color: white; margin: 0; font-size: 28px;">DiaryFi</h1>
+            <p style="color: rgba(255, 255, 255, 0.9); margin: 10px 0 0 0;">Welcome to Your Personal Journal</p>
           </div>
-          
+
           <!-- Content -->
           <div style="padding: 40px 30px;">
-            <h2 style="color: #1f2937; margin-bottom: 20px; font-size: 24px;">
-              🎉 Welcome, ${name}!
-            </h2>
-            
-            <p style="color: #6b7280; line-height: 1.6; margin-bottom: 25px; font-size: 16px;">
-              Thank you for joining DiaryFi! Your account has been successfully created and verified. 
-              You're now ready to explore amazing safari adventures around the world.
+            <h2 style="color: #1f2937; margin-bottom: 20px;">Welcome, ${name}!</h2>
+
+            <p style="color: #6b7280; line-height: 1.6; margin-bottom: 25px;">
+              Thank you for joining DiaryFi! Your account has been successfully created and verified.
+              Start capturing your thoughts and memories today.
             </p>
-            
+
             <!-- CTA Button -->
             <div style="text-align: center; margin: 35px 0;">
-              <a href="${process.env.CLIENT_URL}/dashboard" 
-                 style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); 
-                        color: white; 
-                        padding: 15px 40px; 
-                        text-decoration: none; 
-                        border-radius: 50px; 
-                        font-weight: bold; 
-                        font-size: 16px;
-                        display: inline-block;
-                        box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
-                        transition: all 0.3s ease;">
-                🚀 Explore Dashboard
+              <a href="${process.env.CLIENT_URL}/dashboard"
+                 style="background: linear-gradient(135deg, #2E5C8A 0%, #2E8BC0 100%);
+                        color: white;
+                        padding: 15px 40px;
+                        text-decoration: none;
+                        border-radius: 10px;
+                        font-weight: bold;
+                        display: inline-block;">
+                Get Started
               </a>
             </div>
-            
-            <!-- Features -->
-            <div style="background: #f0fdf4; padding: 25px; border-radius: 8px; margin: 25px 0;">
-              <h3 style="color: #166534; margin: 0 0 15px 0; font-size: 18px;">
-                🌟 What's Next?
-              </h3>
-              <ul style="color: #6b7280; margin: 0; padding-left: 20px;">
-                <li style="margin-bottom: 8px;">Browse our exclusive safari packages</li>
-                <li style="margin-bottom: 8px;">Connect with experienced guides</li>
-                <li style="margin-bottom: 8px;">Plan your dream adventure</li>
-                <li>Join our community of adventure seekers</li>
-              </ul>
-            </div>
           </div>
-          
+
           <!-- Footer -->
-          <div style="background: #f9fafb; padding: 20px 30px; border-top: 1px solid #e5e7eb;">
+          <div style="background: #f9fafb; padding: 20px 30px;">
             <p style="color: #9ca3af; font-size: 12px; margin: 0; text-align: center;">
-              © ${new Date().getFullYear()} Adventure Safari Network. All rights reserved.
-            </p>
-            <p style="color: #9ca3af; font-size: 12px; margin: 5px 0 0 0; text-align: center;">
-              This email was sent to ${email}
+              © ${new Date().getFullYear()} DiaryFi. All rights reserved.
             </p>
           </div>
-          
+
         </div>
       </div>
     </body>
     </html>
   `
 
-  return await sendEmail(email, "Welcome to Adventure Safari Network! 🎉", html)
+  return await sendEmail(email, "Welcome to DiaryFi", html)
 }
 
+const sendOtpEmail = async (email, otp, name) => {
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Verify Your DiaryFi Account</title>
+    </head>
+    <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f5f5f5;">
+      <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+
+          <!-- Header -->
+          <div style="background: linear-gradient(135deg, #2E5C8A 0%, #2E8BC0 100%); padding: 30px; text-align: center;">
+            <h1 style="color: white; margin: 0; font-size: 28px; font-weight: bold;">
+              DiaryFi
+            </h1>
+            <p style="color: rgba(255, 255, 255, 0.9); margin: 10px 0 0 0; font-size: 16px;">
+              Your Personal Journal
+            </p>
+          </div>
+
+          <!-- Content -->
+          <div style="padding: 40px 30px;">
+            <h2 style="color: #1f2937; margin-bottom: 20px; font-size: 24px;">
+              Hello ${name}! 👋
+            </h2>
+
+            <p style="color: #6b7280; line-height: 1.6; margin-bottom: 25px; font-size: 16px;">
+              Thank you for registering with DiaryFi! To complete your registration, please use the following 4-digit verification code:
+            </p>
+
+            <!-- OTP Code -->
+            <div style="text-align: center; margin: 35px 0;">
+              <div style="background: linear-gradient(135deg, #2E5C8A 0%, #2E8BC0 100%);
+                          color: white;
+                          padding: 25px 40px;
+                          border-radius: 15px;
+                          display: inline-block;
+                          box-shadow: 0 4px 15px rgba(46, 139, 192, 0.3);">
+                <p style="margin: 0 0 5px 0; font-size: 14px; opacity: 0.9;">Verification Code</p>
+                <p style="margin: 0; font-size: 42px; font-weight: bold; letter-spacing: 8px; font-family: 'Courier New', monospace;">
+                  ${otp}
+                </p>
+              </div>
+            </div>
+
+            <!-- Instructions -->
+            <div style="background: #f0f9ff; padding: 20px; border-radius: 8px; margin: 25px 0; border-left: 4px solid #2E8BC0;">
+              <p style="color: #1e40af; font-size: 14px; margin: 0 0 10px 0; font-weight: 500;">
+                📝 How to verify:
+              </p>
+              <ul style="color: #6b7280; font-size: 14px; margin: 0; padding-left: 20px;">
+                <li style="margin-bottom: 5px;">Enter this code in the DiaryFi app</li>
+                <li style="margin-bottom: 5px;">Code is valid for 10 minutes</li>
+                <li>Don't share this code with anyone</li>
+              </ul>
+            </div>
+
+            <!-- Security Notice -->
+            <div style="border-left: 4px solid #dc2626; padding-left: 15px; margin: 25px 0;">
+              <p style="color: #991b1b; font-size: 14px; margin: 0; font-weight: 500;">
+                🔒 Security Notice
+              </p>
+              <p style="color: #6b7280; font-size: 14px; margin: 5px 0 0 0;">
+                If you didn't request this code, please ignore this email. Your account is safe.
+              </p>
+            </div>
+          </div>
+
+          <!-- Footer -->
+          <div style="background: #f9fafb; padding: 20px 30px; border-top: 1px solid #e5e7eb;">
+            <p style="color: #9ca3af; font-size: 12px; margin: 0; text-align: center;">
+              © ${new Date().getFullYear()} DiaryFi. All rights reserved.
+            </p>
+            <p style="color: #9ca3af; font-size: 12px; margin: 5px 0 0 0; text-align: center;">
+              This email was sent to ${email}
+            </p>
+          </div>
+
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  return await sendEmail(email, "DiaryFi - Verify Your Email with OTP", html);
+};
+
 module.exports = {
-  sendVerificationEmail,
   sendPasswordResetEmail,
   sendWelcomeEmail,
+  sendOtpEmail,
 }
