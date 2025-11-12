@@ -139,17 +139,19 @@ app.get('/', (req, res) => {
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error('Error:', err.stack);
-  
+  console.error('Global Error Handler - Error:', err);
+  console.error('Global Error Handler - Stack:', err.stack);
+  console.error('Global Error Handler - Message:', err.message);
+
   // Ensure CORS headers are present even in error responses
   if (req.headers.origin) {
     res.header('Access-Control-Allow-Origin', req.headers.origin);
     res.header('Access-Control-Allow-Credentials', 'true');
   }
-  
+
   res.status(500).json({
-    message: 'Something went wrong!',
-    error: process.env.NODE_ENV === 'production' ? {} : err.message
+    message: err.message || 'Something went wrong!',
+    error: process.env.NODE_ENV === 'production' ? { message: err.message } : err.stack
   });
 });
 
