@@ -48,9 +48,11 @@ const createEntry = async (req, res) => {
     });
   } catch (error) {
     console.error("Create entry error:", error);
+    console.error("Error stack:", error.stack);
     return res.status(500).json({
       success: false,
       message: error.message || "Failed to create entry",
+      error: process.env.NODE_ENV === "development" ? error.stack : {},
     });
   }
 };
