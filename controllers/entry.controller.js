@@ -4,7 +4,7 @@ const { deleteFromCloudinary } = require("../middleware/upload");
 // Create a new entry
 const createEntry = async (req, res) => {
   try {
-    const { title, description, location } = req.body;
+    const { title, description, location, createdAt } = req.body;
     const userId = req.user.userId; // From auth middleware
 
     // Validate required fields
@@ -26,7 +26,7 @@ const createEntry = async (req, res) => {
     }
 
     // Create entry with uploaded media
-    const entry = await Entry.create({
+    const entryData = {
       user: userId,
       title,
       description,
@@ -36,7 +36,14 @@ const createEntry = async (req, res) => {
         coordinates: [0, 0],
         address: "",
       },
-    });
+    };
+
+    // Add custom createdAt if provided
+    if (createdAt) {
+      entryData.createdAt = new Date(createdAt);
+    }
+
+    const entry = await Entry.create(entryData);
 
     // Populate user details
     await entry.populate("user", "name email avatar");

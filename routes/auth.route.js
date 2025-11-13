@@ -510,6 +510,66 @@ router.post(
   authController.appleSuccess
 );
 
+// Special endpoint for mobile app Apple Sign-In callback (used by sign_in_with_apple package)
+router.post("/apple/callback/mobile", async (req, res) => {
+  try {
+    console.log("=== Apple Mobile Callback ===");
+    console.log("Body:", req.body);
+
+    const { code, id_token, state } = req.body;
+
+    if (!id_token && !code) {
+      return res.status(400).send(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Sign in with Apple</title>
+            <script>
+              window.close();
+            </script>
+          </head>
+          <body>
+            <p>Authentication failed. You can close this window.</p>
+          </body>
+        </html>
+      `);
+    }
+
+    // Return success page that will be picked up by the app
+    return res.send(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Sign in with Apple</title>
+          <script>
+            // This will be intercepted by the sign_in_with_apple package
+            window.close();
+          </script>
+        </head>
+        <body>
+          <p>Authentication successful! You can close this window.</p>
+        </body>
+      </html>
+    `);
+  } catch (error) {
+    console.error("Apple mobile callback error:", error);
+    return res.status(500).send(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Sign in with Apple</title>
+          <script>
+            window.close();
+          </script>
+        </head>
+        <body>
+          <p>Authentication error. You can close this window.</p>
+        </body>
+      </html>
+    `);
+  }
+});
+
 // Add error handling middleware for OAuth routes
 router.use((error, req, res, next) => {
   console.error("OAuth Error:", error);
