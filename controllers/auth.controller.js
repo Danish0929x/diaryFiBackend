@@ -165,6 +165,7 @@ const login = async (req, res) => {
         name: updatedUser.name,
         email: updatedUser.email,
         picture: updatedUser.avatar,
+        googleId: updatedUser.googleId,
         authMethods: updatedUser.authMethods,
         isEmailVerified: updatedUser.isEmailVerified,
       },
@@ -273,6 +274,7 @@ const getMe = async (req, res) => {
         name: user.name,
         email: user.email,
         picture: user.avatar,
+        googleId: user.googleId,
         authMethods: user.authMethods,
         isEmailVerified: user.isEmailVerified,
       },
@@ -383,6 +385,7 @@ const verifyOtp = async (req, res) => {
         name: user.name,
         email: user.email,
         picture: user.avatar,
+        googleId: user.googleId,
         isEmailVerified: true,
         authMethods: user.authMethods,
       },
@@ -446,6 +449,66 @@ const resendOtp = async (req, res) => {
   }
 };
 
+// Update User Profile (name and avatar)
+const updateProfile = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { name } = req.body;
+    const updateData = {};
+
+    // Update name if provided
+    if (name && name.trim()) {
+      updateData.name = name.trim();
+    }
+
+    // Update avatar if file uploaded
+    if (req.file) {
+      updateData.avatar = req.file.path; // Cloudinary URL
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No data to update",
+      });
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { $set: updateData },
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedUser) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: "Profile updated successfully",
+      user: {
+        id: updatedUser._id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        picture: updatedUser.avatar,
+        googleId: updatedUser.googleId,
+        authMethods: updatedUser.authMethods,
+        isEmailVerified: updatedUser.isEmailVerified,
+      },
+    });
+  } catch (error) {
+    console.error("Update profile error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to update profile",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   register,
   verifyOtp,
@@ -456,4 +519,5 @@ module.exports = {
   getMe,
   googleSuccess,
   appleSuccess,
+  updateProfile,
 };

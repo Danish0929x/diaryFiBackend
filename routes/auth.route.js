@@ -1,11 +1,21 @@
 const express = require("express");
 const passport = require("passport");
 const { body } = require("express-validator");
+const multer = require("multer");
 const authController = require("../controllers/auth.controller");
 const auth = require("../middleware/auth");
 const userModel = require("../models/user.model");
+const { avatarStorage } = require("../config/cloudinary");
 
 const router = express.Router();
+
+// Configure multer for profile image upload
+const upload = multer({
+  storage: avatarStorage,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
+});
 
 // Validation rules
 const registerValidation = [
@@ -68,6 +78,7 @@ router.post(
   authController.resetPassword
 );
 router.get("/me", auth, authController.getMe);
+router.put("/me", auth, upload.single("avatar"), authController.updateProfile);
 
 // Google OAuth routes
 router.get(
@@ -118,7 +129,12 @@ router.post("/google", async (req, res) => {
     // Find or create user (similar to your existing Google strategy logic)
     let user = await userModel.findOneAndUpdate(
       { googleId },
-      { $set: { lastLogin: new Date() } },
+      {
+        $set: {
+          lastLogin: new Date(),
+          googleId: googleId  // Ensure googleId is always set
+        }
+      },
       { new: true }
     );
 
@@ -172,7 +188,8 @@ router.post("/google", async (req, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
-        avatar: user.avatar,
+        picture: user.avatar,
+        googleId: user.googleId,
         authMethods: user.authMethods,
         isEmailVerified: user.isEmailVerified,
       },
@@ -274,7 +291,12 @@ router.post("/google-access-token", async (req, res) => {
     // Find or create user
     let user = await userModel.findOneAndUpdate(
       { googleId },
-      { $set: { lastLogin: new Date() } },
+      {
+        $set: {
+          lastLogin: new Date(),
+          googleId: googleId  // Ensure googleId is always set
+        }
+      },
       { new: true }
     );
 
@@ -318,6 +340,7 @@ router.post("/google-access-token", async (req, res) => {
     });
 
     console.log("✅ Access token authentication successful");
+    console.log("User object googleId:", user.googleId);
     res.json({
       success: true,
       token,
@@ -325,7 +348,8 @@ router.post("/google-access-token", async (req, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
-        avatar: user.avatar,
+        picture: user.avatar,
+        googleId: user.googleId,
         authMethods: user.authMethods,
         isEmailVerified: user.isEmailVerified,
       },
@@ -454,7 +478,7 @@ router.post("/apple", async (req, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
-        avatar: user.avatar,
+        picture: user.avatar,
         authMethods: user.authMethods,
         isEmailVerified: user.isEmailVerified,
       },

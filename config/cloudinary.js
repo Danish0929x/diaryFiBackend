@@ -16,4 +16,14 @@ const storage = new CloudinaryStorage({
   }
 });
 
-module.exports = { cloudinary, storage };
+// Storage for profile avatars
+const avatarStorage = new CloudinaryStorage({
+  cloudinary,
+  params: {
+    folder: 'user-avatars',
+    allowed_formats: ['jpg', 'png', 'jpeg', 'gif'],
+    transformation: [{ width: 512, height: 512, crop: 'fill' }]
+  }
+});
+
+module.exports = { cloudinary, storage, avatarStorage };
