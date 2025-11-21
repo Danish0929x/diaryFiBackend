@@ -164,6 +164,7 @@ const login = async (req, res) => {
         id: updatedUser._id,
         name: updatedUser.name,
         email: updatedUser.email,
+        picture: updatedUser.avatar,
         authMethods: updatedUser.authMethods,
         isEmailVerified: updatedUser.isEmailVerified,
       },
@@ -267,7 +268,14 @@ const getMe = async (req, res) => {
     );
     res.json({
       success: true,
-      user,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        picture: user.avatar,
+        authMethods: user.authMethods,
+        isEmailVerified: user.isEmailVerified,
+      },
     });
   } catch (error) {
     console.error("Get user error:", error);
@@ -374,6 +382,7 @@ const verifyOtp = async (req, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
+        picture: user.avatar,
         isEmailVerified: true,
         authMethods: user.authMethods,
       },
