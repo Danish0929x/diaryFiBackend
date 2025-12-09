@@ -262,8 +262,113 @@ const sendOtpEmail = async (email, otp, name) => {
   return await sendEmail(email, "DiaryFi - Verify Your Email with OTP", html);
 };
 
+const sendTempPasswordEmail = async (email, tempPassword, name) => {
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Your DiaryFi Temporary Password</title>
+    </head>
+    <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f5f5f5;">
+      <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+
+          <!-- Header -->
+          <div style="background: linear-gradient(135deg, #2E5C8A 0%, #2E8BC0 100%); padding: 30px; text-align: center;">
+            <h1 style="color: white; margin: 0; font-size: 28px; font-weight: bold;">
+              DiaryFi
+            </h1>
+            <p style="color: rgba(255, 255, 255, 0.9); margin: 10px 0 0 0; font-size: 16px;">
+              Password Reset Successful
+            </p>
+          </div>
+
+          <!-- Content -->
+          <div style="padding: 40px 30px;">
+            <h2 style="color: #1f2937; margin-bottom: 20px; font-size: 24px;">
+              Hello ${name}! 👋
+            </h2>
+
+            <p style="color: #6b7280; line-height: 1.6; margin-bottom: 25px; font-size: 16px;">
+              We've received your request to reset your password. Your new temporary password is:
+            </p>
+
+            <!-- Temporary Password -->
+            <div style="text-align: center; margin: 35px 0;">
+              <div style="background: linear-gradient(135deg, #2E5C8A 0%, #2E8BC0 100%);
+                          color: white;
+                          padding: 25px 40px;
+                          border-radius: 15px;
+                          display: inline-block;
+                          box-shadow: 0 4px 15px rgba(46, 139, 192, 0.3);">
+                <p style="margin: 0 0 5px 0; font-size: 14px; opacity: 0.9;">Temporary Password</p>
+                <p style="margin: 0; font-size: 42px; font-weight: bold; letter-spacing: 8px; font-family: 'Courier New', monospace;">
+                  ${tempPassword}
+                </p>
+              </div>
+            </div>
+
+            <!-- Instructions -->
+            <div style="background: #f0f9ff; padding: 20px; border-radius: 8px; margin: 25px 0; border-left: 4px solid #2E8BC0;">
+              <p style="color: #1e40af; font-size: 14px; margin: 0 0 10px 0; font-weight: 500;">
+                📝 Next Steps:
+              </p>
+              <ul style="color: #6b7280; font-size: 14px; margin: 0; padding-left: 20px;">
+                <li style="margin-bottom: 5px;">Use this password to login to your account</li>
+                <li style="margin-bottom: 5px;">We recommend changing this password after logging in</li>
+                <li>Keep this password secure and don't share it with anyone</li>
+              </ul>
+            </div>
+
+            <!-- Security Notice -->
+            <div style="border-left: 4px solid #dc2626; padding-left: 15px; margin: 25px 0;">
+              <p style="color: #991b1b; font-size: 14px; margin: 0; font-weight: 500;">
+                🔒 Security Notice
+              </p>
+              <p style="color: #6b7280; font-size: 14px; margin: 5px 0 0 0;">
+                If you didn't request this password reset, please contact us immediately. Your account may be at risk.
+              </p>
+            </div>
+
+            <!-- CTA Button -->
+            <div style="text-align: center; margin: 35px 0;">
+              <a href="${process.env.CLIENT_URL}/login"
+                 style="background: linear-gradient(135deg, #2E5C8A 0%, #2E8BC0 100%);
+                        color: white;
+                        padding: 15px 40px;
+                        text-decoration: none;
+                        border-radius: 10px;
+                        font-weight: bold;
+                        display: inline-block;">
+                Login Now
+              </a>
+            </div>
+          </div>
+
+          <!-- Footer -->
+          <div style="background: #f9fafb; padding: 20px 30px; border-top: 1px solid #e5e7eb;">
+            <p style="color: #9ca3af; font-size: 12px; margin: 0; text-align: center;">
+              © ${new Date().getFullYear()} DiaryFi. All rights reserved.
+            </p>
+            <p style="color: #9ca3af; font-size: 12px; margin: 5px 0 0 0; text-align: center;">
+              This email was sent to ${email}
+            </p>
+          </div>
+
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  return await sendEmail(email, "DiaryFi - Your Temporary Password", html);
+};
+
 module.exports = {
   sendPasswordResetEmail,
   sendWelcomeEmail,
   sendOtpEmail,
+  sendTempPasswordEmail,
 }

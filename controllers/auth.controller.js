@@ -4,6 +4,7 @@ const User = require("../models/user.model");
 const {
   sendPasswordResetEmail,
   sendOtpEmail,
+  sendTempPasswordEmail,
 } = require("../utils/emailService");
 
 // Helper functions
@@ -509,15 +510,142 @@ const updateProfile = async (req, res) => {
   }
 };
 
+// Change Password (for authenticated users)
+const changePassword = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { currentPassword, newPassword } = req.body;
+
+    // Validate input
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Current password and new password are required",
+      });
+    }
+
+    // Find user with password field
+    const user = await User.findById(userId).select("+password +authMethods");
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Check if user has email auth method (password login)
+    if (!user.authMethods.includes("email")) {
+      return res.status(400).json({
+        success: false,
+        message: "Password change not available for your account type. Please set up a password first.",
+      });
+    }
+
+    // Verify current password
+    const isMatch = await user.comparePassword(currentPassword);
+    if (!isMatch) {
+      return res.status(400).json({
+        success: false,
+        message: "Current password is incorrect",
+      });
+    }
+
+    // Check if new password is same as current
+    const isSamePassword = await user.comparePassword(newPassword);
+    if (isSamePassword) {
+      return res.status(400).json({
+        success: false,
+        message: "New password must be different from current password",
+      });
+    }
+
+    // Update password (will be hashed via pre-save hook)
+    user.password = newPassword;
+    await user.save();
+
+    return res.json({
+      success: true,
+      message: "Password changed successfully",
+    });
+  } catch (error) {
+    console.error("Change password error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to change password",
+      error: error.message,
+    });
+  }
+};
+
+// Forgot Password - Generate and send temporary password
+const forgotPasswordWithTemp = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: "Email is required",
+      });
+    }
+
+    // Find user
+    const user = await User.findOne({ email }).select("+authMethods");
+
+    if (!user) {
+      // Don't reveal if user exists for security
+      return res.json({
+        success: true,
+        message: "If an account exists with this email, a temporary password has been sent",
+      });
+    }
+
+    // Check if user has email/password auth method
+    if (!user.authMethods.includes("email")) {
+      return res.status(400).json({
+        success: false,
+        message: "This account uses social login (Google/Apple). Please login using that method.",
+      });
+    }
+
+    // Generate random 6-digit password
+    const tempPassword = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Update user's password (will be hashed by pre-save hook)
+    user.password = tempPassword;
+    await user.save();
+
+    // Send temporary password via email
+    await sendTempPasswordEmail(email, tempPassword, user.name);
+
+    console.log(`✅ Temporary password sent to ${email}: ${tempPassword}`); // For development/testing
+
+    return res.json({
+      success: true,
+      message: "If an account exists with this email, a temporary password has been sent",
+    });
+  } catch (error) {
+    console.error("Forgot password error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to process forgot password request",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   register,
   verifyOtp,
   resendOtp,
   login,
   forgotPassword: handlePasswordSetup, // Reused for Google/Apple users
+  forgotPasswordWithTemp, // New forgot password with temporary password
   resetPassword,
   getMe,
   googleSuccess,
   appleSuccess,
   updateProfile,
+  changePassword,
 };

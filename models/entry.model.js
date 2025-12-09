@@ -44,6 +44,17 @@ const entrySchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    formatSpans: [
+      {
+        start: { type: Number, required: true },
+        end: { type: Number, required: true },
+        bold: { type: Boolean, default: false },
+        italic: { type: Boolean, default: false },
+        underline: { type: Boolean, default: false },
+        strikethrough: { type: Boolean, default: false },
+        headingLevel: { type: Number },
+      },
+    ],
     media: [mediaSchema],
     location: {
       type: {

@@ -73,12 +73,18 @@ router.post(
   authController.forgotPassword
 );
 router.post(
+  "/forgot-password-temp",
+  forgotPasswordValidation,
+  authController.forgotPasswordWithTemp
+);
+router.post(
   "/reset-password",
   resetPasswordValidation,
   authController.resetPassword
 );
 router.get("/me", auth, authController.getMe);
 router.put("/me", auth, upload.single("avatar"), authController.updateProfile);
+router.put("/change-password", auth, authController.changePassword);
 
 // Google OAuth routes
 router.get(

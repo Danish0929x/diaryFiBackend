@@ -4,7 +4,7 @@ const { deleteFromCloudinary } = require("../middleware/upload");
 // Create a new entry
 const createEntry = async (req, res) => {
   try {
-    const { title, description, location, createdAt } = req.body;
+    const { title, description, location, createdAt, formatSpans } = req.body;
     const userId = req.user.userId; // From auth middleware
 
     // Validate required fields
@@ -25,6 +25,17 @@ const createEntry = async (req, res) => {
       }
     }
 
+    // Parse formatSpans if provided as string
+    let parsedFormatSpans = null;
+    if (formatSpans) {
+      try {
+        parsedFormatSpans = typeof formatSpans === "string" ? JSON.parse(formatSpans) : formatSpans;
+        console.log("📝 [Backend] Parsed formatSpans:", parsedFormatSpans);
+      } catch (e) {
+        console.error("Error parsing formatSpans:", e);
+      }
+    }
+
     // Create entry with uploaded media
     const entryData = {
       user: userId,
@@ -36,6 +47,7 @@ const createEntry = async (req, res) => {
         coordinates: [0, 0],
         address: "",
       },
+      formatSpans: parsedFormatSpans || [],
     };
 
     // Add custom createdAt if provided
@@ -131,7 +143,7 @@ const updateEntry = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.userId;
-    const { title, description, location } = req.body;
+    const { title, description, location, formatSpans } = req.body;
 
     const entry = await Entry.findOne({ _id: id, user: userId });
 
@@ -153,6 +165,17 @@ const updateEntry = async (req, res) => {
         entry.location = parsedLocation;
       } catch (e) {
         console.error("Error parsing location:", e);
+      }
+    }
+
+    // Parse and update formatSpans if provided
+    if (formatSpans !== undefined) {
+      try {
+        const parsedFormatSpans = typeof formatSpans === "string" ? JSON.parse(formatSpans) : formatSpans;
+        entry.formatSpans = parsedFormatSpans;
+        console.log("📝 [Backend] Updated formatSpans:", parsedFormatSpans);
+      } catch (e) {
+        console.error("Error parsing formatSpans:", e);
       }
     }
 
