@@ -128,6 +128,17 @@ require("./config/passport")(passport)
 app.use("/api/auth", require("./routes/auth.route.js"));
 app.use("/api/entries", require("./routes/entry.route.js"));
 
+// Apple Sign-In callback route for mobile (used by sign_in_with_apple package on Android)
+app.get("/callbacks/sign_in_with_apple", passport.authenticate("apple", {
+  failureRedirect: `${process.env.CLIENT_URL || 'http://localhost:8081'}/login?error=apple_auth_failed`,
+  session: false,
+}), require("./controllers/auth.controller").appleSuccess);
+
+app.post("/callbacks/sign_in_with_apple", passport.authenticate("apple", {
+  failureRedirect: `${process.env.CLIENT_URL || 'http://localhost:8081'}/login?error=apple_auth_failed`,
+  session: false,
+}), require("./controllers/auth.controller").appleSuccess);
+
 // Basic routes
 app.get('/', (req, res) => {
   res.json({
