@@ -2,6 +2,7 @@ const GoogleStrategy = require("passport-google-oauth20").Strategy;
 const AppleStrategy = require("passport-apple").Strategy;
 const jwt = require('jsonwebtoken');
 const userModel = require("../models/user.model");
+const User = userModel; // Alias for use in Apple strategy
 
 module.exports = (passport) => {
   // Google Strategy (existing - keep as is)
