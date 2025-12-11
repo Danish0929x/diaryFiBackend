@@ -299,12 +299,13 @@ const sendTempPasswordEmail = async (email, tempPassword, name) => {
             <div style="text-align: center; margin: 35px 0;">
               <div style="background: linear-gradient(135deg, #2E5C8A 0%, #2E8BC0 100%);
                           color: white;
-                          padding: 25px 40px;
-                          border-radius: 15px;
+                          padding: 20px 30px;
+                          border-radius: 12px;
                           display: inline-block;
-                          box-shadow: 0 4px 15px rgba(46, 139, 192, 0.3);">
-                <p style="margin: 0 0 5px 0; font-size: 14px; opacity: 0.9;">Temporary Password</p>
-                <p style="margin: 0; font-size: 42px; font-weight: bold; letter-spacing: 8px; font-family: 'Courier New', monospace;">
+                          box-shadow: 0 4px 15px rgba(46, 139, 192, 0.3);
+                          max-width: 90%;">
+                <p style="margin: 0 0 8px 0; font-size: 13px; opacity: 0.9;">Temporary Password</p>
+                <p style="margin: 0; font-size: 32px; font-weight: bold; letter-spacing: 5px; font-family: 'Courier New', monospace;">
                   ${tempPassword}
                 </p>
               </div>
