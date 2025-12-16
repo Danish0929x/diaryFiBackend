@@ -318,18 +318,28 @@ const appleSuccess = async (req, res) => {
 
     if (!req.user) {
       console.error('🍎 [APPLE_SUCCESS] No user found');
-      // Return HTML that closes the WebView (for mobile)
+      // Return simple HTML without window.close() - let the package handle it
       return res.send(`
         <!DOCTYPE html>
         <html>
           <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>Sign in with Apple</title>
-            <script>
-              window.close();
-            </script>
+            <style>
+              body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+                     display: flex; justify-content: center; align-items: center;
+                     min-height: 100vh; margin: 0; background: #f5f5f7; }
+              .container { text-align: center; padding: 2rem; background: white;
+                          border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+              h2 { color: #d32f2f; margin: 0 0 1rem 0; }
+            </style>
           </head>
           <body>
-            <p>Authentication failed. You can close this window.</p>
+            <div class="container">
+              <h2>✗ Authentication Failed</h2>
+              <p>Returning to app...</p>
+            </div>
           </body>
         </html>
       `);
@@ -338,20 +348,28 @@ const appleSuccess = async (req, res) => {
     const token = generateToken(req.user._id);
     console.log('🍎 [APPLE_SUCCESS] Token generated:', token.substring(0, 20) + '...');
 
-    // Return HTML that closes the WebView and communicates success
-    // The sign_in_with_apple package will intercept this
+    // Return simple HTML without window.close() - let the sign_in_with_apple package handle the tab lifecycle
     return res.send(`
       <!DOCTYPE html>
       <html>
         <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
           <title>Sign in with Apple</title>
-          <script>
-            // This will be intercepted by the sign_in_with_apple package
-            window.close();
-          </script>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+                   display: flex; justify-content: center; align-items: center;
+                   min-height: 100vh; margin: 0; background: #f5f5f7; }
+            .container { text-align: center; padding: 2rem; background: white;
+                        border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+            h2 { color: #4caf50; margin: 0 0 1rem 0; }
+          </style>
         </head>
         <body>
-          <p>Authentication successful! You can close this window.</p>
+          <div class="container">
+            <h2>✓ Authentication Successful!</h2>
+            <p>Returning to app...</p>
+          </div>
         </body>
       </html>
     `);
@@ -361,13 +379,23 @@ const appleSuccess = async (req, res) => {
       <!DOCTYPE html>
       <html>
         <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
           <title>Sign in with Apple</title>
-          <script>
-            window.close();
-          </script>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+                   display: flex; justify-content: center; align-items: center;
+                   min-height: 100vh; margin: 0; background: #f5f5f7; }
+            .container { text-align: center; padding: 2rem; background: white;
+                        border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+            h2 { color: #ff9800; margin: 0 0 1rem 0; }
+          </style>
         </head>
         <body>
-          <p>Authentication error. You can close this window.</p>
+          <div class="container">
+            <h2>⚠ Authentication Error</h2>
+            <p>Returning to app...</p>
+          </div>
         </body>
       </html>
     `);
