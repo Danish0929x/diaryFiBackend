@@ -169,31 +169,18 @@ app.post("/callbacks/sign_in_with_apple", (req, res) => {
   console.log('🍎 [CALLBACK POST] Body:', JSON.stringify(req.body, null, 2));
   console.log('🍎 [CALLBACK POST] Query:', JSON.stringify(req.query, null, 2));
 
-  // Just return success HTML - the package will extract the auth data from the POST body
-  res.send(`
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Sign in with Apple</title>
-        <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
-                 display: flex; justify-content: center; align-items: center;
-                 min-height: 100vh; margin: 0; background: #f5f5f7; }
-          .container { text-align: center; padding: 2rem; background: white;
-                      border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-          h2 { color: #4caf50; margin: 0 0 1rem 0; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <h2>✓ Authentication Successful!</h2>
-          <p>Returning to app...</p>
-        </div>
-      </body>
-    </html>
-  `);
+  const { code, id_token, state } = req.body;
+
+  // Redirect to a GET endpoint with the data in query params
+  // This allows the sign_in_with_apple package to intercept the URL
+  const params = new URLSearchParams({
+    ...(code && { code }),
+    ...(id_token && { id_token }),
+    ...(state && { state })
+  });
+
+  console.log('🍎 [CALLBACK POST] Redirecting with params:', params.toString());
+  res.redirect(`/callbacks/sign_in_with_apple?${params.toString()}`);
 });
 
 // Basic routes
