@@ -313,21 +313,64 @@ const googleSuccess = async (req, res) => {
 // Apple OAuth Success
 const appleSuccess = async (req, res) => {
   try {
+    console.log('🍎 [APPLE_SUCCESS] Callback received');
+    console.log('🍎 [APPLE_SUCCESS] User:', req.user ? req.user._id : 'No user');
+
     if (!req.user) {
-      return res.redirect(`${process.env.CLIENT_URL}/login?error=auth_failed`);
+      console.error('🍎 [APPLE_SUCCESS] No user found');
+      // Return HTML that closes the WebView (for mobile)
+      return res.send(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Sign in with Apple</title>
+            <script>
+              window.close();
+            </script>
+          </head>
+          <body>
+            <p>Authentication failed. You can close this window.</p>
+          </body>
+        </html>
+      `);
     }
-    // Check if Apple-only user needs to set password
-    const needsPasswordSetup =
-      req.user.authMethods.includes("apple") &&
-      !req.user.authMethods.includes("email");
+
     const token = generateToken(req.user._id);
-    const redirectUrl = needsPasswordSetup
-      ? `${process.env.CLIENT_URL}/auth/success?token=${token}&action=set-password`
-      : `${process.env.CLIENT_URL}/auth/success?token=${token}`;
-    return res.redirect(redirectUrl);
+    console.log('🍎 [APPLE_SUCCESS] Token generated:', token.substring(0, 20) + '...');
+
+    // Return HTML that closes the WebView and communicates success
+    // The sign_in_with_apple package will intercept this
+    return res.send(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Sign in with Apple</title>
+          <script>
+            // This will be intercepted by the sign_in_with_apple package
+            window.close();
+          </script>
+        </head>
+        <body>
+          <p>Authentication successful! You can close this window.</p>
+        </body>
+      </html>
+    `);
   } catch (error) {
-    console.error("Apple auth error:", error);
-    return res.redirect(`${process.env.CLIENT_URL}/login?error=auth_failed`);
+    console.error("🍎 [APPLE_SUCCESS] Error:", error);
+    return res.send(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Sign in with Apple</title>
+          <script>
+            window.close();
+          </script>
+        </head>
+        <body>
+          <p>Authentication error. You can close this window.</p>
+        </body>
+      </html>
+    `);
   }
 };
 
