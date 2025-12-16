@@ -137,7 +137,7 @@ app.get("/callbacks/sign_in_with_apple", (req, res) => {
   console.log('🍎 [CALLBACK GET] Apple callback received');
   console.log('🍎 [CALLBACK GET] Query:', JSON.stringify(req.query, null, 2));
 
-  // Simple HTML page - user needs to manually close on Android
+  // Just return success HTML - the package will extract the auth code from the URL
   res.send(`
     <!DOCTYPE html>
     <html>
@@ -148,27 +148,16 @@ app.get("/callbacks/sign_in_with_apple", (req, res) => {
         <style>
           body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
                  display: flex; justify-content: center; align-items: center;
-                 min-height: 100vh; margin: 0; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-          .container { text-align: center; padding: 2.5rem; background: white;
-                      border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-                      max-width: 400px; width: 90%; }
-          h2 { color: #4caf50; margin: 0 0 1rem 0; font-size: 1.5rem; }
-          p { color: #555; margin: 0.5rem 0; line-height: 1.5; }
-          .instruction { background: #f0f9ff; border-left: 4px solid #007aff;
-                        padding: 1rem; margin: 1.5rem 0; text-align: left; border-radius: 4px; }
-          .instruction strong { color: #007aff; display: block; margin-bottom: 0.5rem; }
-          .icon { font-size: 3rem; margin-bottom: 1rem; }
+                 min-height: 100vh; margin: 0; background: #f5f5f7; }
+          .container { text-align: center; padding: 2rem; background: white;
+                      border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+          h2 { color: #4caf50; margin: 0 0 1rem 0; }
         </style>
       </head>
       <body>
         <div class="container">
-          <div class="icon">✓</div>
-          <h2>Authentication Successful!</h2>
-          <p>Your Apple Sign In was successful.</p>
-          <div class="instruction">
-            <strong>Next Step:</strong>
-            Please tap the <strong>X</strong> or <strong>Back button</strong> to close this window and return to DiaryFi.
-          </div>
+          <h2>✓ Authentication Successful!</h2>
+          <p>Returning to app...</p>
         </div>
       </body>
     </html>
