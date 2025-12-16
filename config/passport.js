@@ -1,6 +1,8 @@
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
 const AppleStrategy = require("passport-apple").Strategy;
 const jwt = require('jsonwebtoken');
+const fs = require('fs');
+const path = require('path');
 const userModel = require("../models/user.model");
 const User = userModel; // Alias for use in Apple strategy
 
@@ -69,13 +71,28 @@ module.exports = (passport) => {
   );
 
   // Fixed Apple Strategy
+  // Load private key from file or environment variable
+  let applePrivateKey;
+  if (process.env.APPLE_PRIVATE_KEY_PATH) {
+    try {
+      const keyPath = path.resolve(process.env.APPLE_PRIVATE_KEY_PATH);
+      applePrivateKey = fs.readFileSync(keyPath, 'utf8');
+      console.log('✅ Apple private key loaded from file:', keyPath);
+    } catch (error) {
+      console.error('❌ Error loading Apple private key from file:', error.message);
+      applePrivateKey = process.env.APPLE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+    }
+  } else {
+    applePrivateKey = process.env.APPLE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+  }
+
   passport.use(
     new AppleStrategy(
       {
         clientID: process.env.APPLE_CLIENT_ID,
         teamID: process.env.APPLE_TEAM_ID,
         keyID: process.env.APPLE_KEY_ID,
-        privateKeyString: process.env.APPLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+        privateKeyString: applePrivateKey,
         callbackURL: process.env.APPLE_CALLBACK_URL,
         scope: ["name", "email"],
         passReqToCallback: true
