@@ -137,8 +137,20 @@ app.get("/callbacks/sign_in_with_apple", (req, res) => {
   console.log('🍎 [CALLBACK GET] Apple callback received');
   console.log('🍎 [CALLBACK GET] Query:', JSON.stringify(req.query, null, 2));
 
-  // Return HTML that the sign_in_with_apple package can parse
-  // The package looks for this specific format to extract the authentication data
+  const { code, id_token, state } = req.query;
+
+  // Build custom URL scheme redirect
+  const params = new URLSearchParams({
+    ...(code && { code }),
+    ...(id_token && { id_token }),
+    ...(state && { state })
+  });
+
+  const appRedirectUrl = `diaryfi://apple.callback?${params.toString()}`;
+  console.log('🍎 [CALLBACK GET] Preparing redirect to app:', appRedirectUrl);
+
+  // Return HTML that redirects to custom URL scheme
+  // This will open the app and pass the authentication data
   res.send(`
     <!DOCTYPE html>
     <html>
@@ -159,20 +171,23 @@ app.get("/callbacks/sign_in_with_apple", (req, res) => {
           @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         </style>
         <script>
-          // The sign_in_with_apple package will intercept and read the URL parameters
-          // Then automatically close this WebView and return to the Flutter app
           console.log('Apple Sign In callback page loaded');
-          console.log('Current URL:', window.location.href);
+          console.log('Redirecting to app...');
 
-          // Notify that authentication is complete
-          // The package should automatically detect this page and close the WebView
           window.onload = function() {
-            console.log('Page loaded, package should now process the callback');
-            // Give the package time to intercept, then show a close message
+            // Redirect to custom URL scheme which opens the app
+            window.location.href = '${appRedirectUrl}';
+
+            // Show a message if redirect doesn't work
             setTimeout(function() {
               document.getElementById('status').innerHTML =
-                'If this window does not close automatically, you can close it manually.';
-            }, 3000);
+                'Tap here to return to the app if it doesn\\'t open automatically.';
+              document.getElementById('status').onclick = function() {
+                window.location.href = '${appRedirectUrl}';
+              };
+              document.getElementById('status').style.cursor = 'pointer';
+              document.getElementById('status').style.textDecoration = 'underline';
+            }, 2000);
           };
         </script>
       </head>
@@ -195,14 +210,16 @@ app.post("/callbacks/sign_in_with_apple", (req, res) => {
   const { code, id_token, state } = req.body;
 
   // Build the redirect URL with query params
+  // Use custom URL scheme for better Android compatibility
   const params = new URLSearchParams({
     ...(code && { code }),
     ...(id_token && { id_token }),
     ...(state && { state })
   });
 
-  const redirectUrl = `/callbacks/sign_in_with_apple?${params.toString()}`;
-  console.log('🍎 [CALLBACK POST] Preparing redirect to:', redirectUrl);
+  // Redirect to custom URL scheme which will be handled by the app
+  const redirectUrl = `diaryfi://apple.callback?${params.toString()}`;
+  console.log('🍎 [CALLBACK POST] Preparing redirect to custom URL scheme:', redirectUrl);
 
   // Return HTML with JavaScript redirect instead of HTTP redirect
   // This keeps the page in the WebView context so the package can intercept
