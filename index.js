@@ -171,16 +171,34 @@ app.post("/callbacks/sign_in_with_apple", (req, res) => {
 
   const { code, id_token, state } = req.body;
 
-  // Redirect to a GET endpoint with the data in query params
-  // This allows the sign_in_with_apple package to intercept the URL
+  // Build the redirect URL with query params
   const params = new URLSearchParams({
     ...(code && { code }),
     ...(id_token && { id_token }),
     ...(state && { state })
   });
 
-  console.log('🍎 [CALLBACK POST] Redirecting with params:', params.toString());
-  res.redirect(`/callbacks/sign_in_with_apple?${params.toString()}`);
+  const redirectUrl = `/callbacks/sign_in_with_apple?${params.toString()}`;
+  console.log('🍎 [CALLBACK POST] Preparing redirect to:', redirectUrl);
+
+  // Return HTML with JavaScript redirect instead of HTTP redirect
+  // This keeps the page in the WebView context so the package can intercept
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>Sign in with Apple</title>
+      </head>
+      <body>
+        <script>
+          // Immediately redirect to GET endpoint with params in URL
+          window.location.href = '${redirectUrl}';
+        </script>
+        <p>Redirecting...</p>
+      </body>
+    </html>
+  `);
 });
 
 // Basic routes
