@@ -137,7 +137,8 @@ app.get("/callbacks/sign_in_with_apple", (req, res) => {
   console.log('🍎 [CALLBACK GET] Apple callback received');
   console.log('🍎 [CALLBACK GET] Query:', JSON.stringify(req.query, null, 2));
 
-  // Just return success HTML - the package will extract the auth code from the URL
+  // Return HTML that the sign_in_with_apple package can parse
+  // The package looks for this specific format to extract the authentication data
   res.send(`
     <!DOCTYPE html>
     <html>
@@ -152,12 +153,34 @@ app.get("/callbacks/sign_in_with_apple", (req, res) => {
           .container { text-align: center; padding: 2rem; background: white;
                       border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
           h2 { color: #4caf50; margin: 0 0 1rem 0; }
+          .spinner { border: 3px solid #f3f3f3; border-top: 3px solid #4caf50;
+                     border-radius: 50%; width: 40px; height: 40px;
+                     animation: spin 1s linear infinite; margin: 1rem auto; }
+          @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         </style>
+        <script>
+          // The sign_in_with_apple package will intercept and read the URL parameters
+          // Then automatically close this WebView and return to the Flutter app
+          console.log('Apple Sign In callback page loaded');
+          console.log('Current URL:', window.location.href);
+
+          // Notify that authentication is complete
+          // The package should automatically detect this page and close the WebView
+          window.onload = function() {
+            console.log('Page loaded, package should now process the callback');
+            // Give the package time to intercept, then show a close message
+            setTimeout(function() {
+              document.getElementById('status').innerHTML =
+                'If this window does not close automatically, you can close it manually.';
+            }, 3000);
+          };
+        </script>
       </head>
       <body>
         <div class="container">
           <h2>✓ Authentication Successful!</h2>
-          <p>Returning to app...</p>
+          <div class="spinner"></div>
+          <p id="status">Returning to app...</p>
         </div>
       </body>
     </html>
