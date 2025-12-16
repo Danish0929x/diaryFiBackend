@@ -314,11 +314,15 @@ const googleSuccess = async (req, res) => {
 const appleSuccess = async (req, res) => {
   try {
     console.log('🍎 [APPLE_SUCCESS] Callback received');
+    console.log('🍎 [APPLE_SUCCESS] Request body:', JSON.stringify(req.body, null, 2));
+    console.log('🍎 [APPLE_SUCCESS] Request query:', JSON.stringify(req.query, null, 2));
     console.log('🍎 [APPLE_SUCCESS] User:', req.user ? req.user._id : 'No user');
 
+    // The sign_in_with_apple package expects to intercept this callback
+    // We just need to return a simple success page - the package extracts the auth code from the POST body
     if (!req.user) {
       console.error('🍎 [APPLE_SUCCESS] No user found');
-      // Return simple HTML without window.close() - let the package handle it
+      // Return simple HTML - let the package handle it
       return res.send(`
         <!DOCTYPE html>
         <html>
@@ -348,7 +352,7 @@ const appleSuccess = async (req, res) => {
     const token = generateToken(req.user._id);
     console.log('🍎 [APPLE_SUCCESS] Token generated:', token.substring(0, 20) + '...');
 
-    // Return simple HTML without window.close() - let the sign_in_with_apple package handle the tab lifecycle
+    // Return simple HTML - the sign_in_with_apple package will handle extracting the auth data
     return res.send(`
       <!DOCTYPE html>
       <html>

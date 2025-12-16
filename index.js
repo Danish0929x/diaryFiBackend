@@ -131,15 +131,70 @@ app.use("/api/auth", require("./routes/auth.route.js"));
 app.use("/api/entries", require("./routes/entry.route.js"));
 
 // Apple Sign-In callback route for mobile (used by sign_in_with_apple package on Android)
-app.get("/callbacks/sign_in_with_apple", passport.authenticate("apple", {
-  failureRedirect: `${process.env.CLIENT_URL || 'http://localhost:8081'}/login?error=apple_auth_failed`,
-  session: false,
-}), require("./controllers/auth.controller").appleSuccess);
+// The sign_in_with_apple package needs to intercept the raw callback data
+// So we DON'T use passport here - just return a simple success page
+app.get("/callbacks/sign_in_with_apple", (req, res) => {
+  console.log('🍎 [CALLBACK GET] Apple callback received');
+  console.log('🍎 [CALLBACK GET] Query:', JSON.stringify(req.query, null, 2));
 
-app.post("/callbacks/sign_in_with_apple", passport.authenticate("apple", {
-  failureRedirect: `${process.env.CLIENT_URL || 'http://localhost:8081'}/login?error=apple_auth_failed`,
-  session: false,
-}), require("./controllers/auth.controller").appleSuccess);
+  // Just return success HTML - the package will extract the auth code from the URL
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Sign in with Apple</title>
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+                 display: flex; justify-content: center; align-items: center;
+                 min-height: 100vh; margin: 0; background: #f5f5f7; }
+          .container { text-align: center; padding: 2rem; background: white;
+                      border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+          h2 { color: #4caf50; margin: 0 0 1rem 0; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h2>✓ Authentication Successful!</h2>
+          <p>Returning to app...</p>
+        </div>
+      </body>
+    </html>
+  `);
+});
+
+app.post("/callbacks/sign_in_with_apple", (req, res) => {
+  console.log('🍎 [CALLBACK POST] Apple callback received');
+  console.log('🍎 [CALLBACK POST] Body:', JSON.stringify(req.body, null, 2));
+  console.log('🍎 [CALLBACK POST] Query:', JSON.stringify(req.query, null, 2));
+
+  // Just return success HTML - the package will extract the auth data from the POST body
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Sign in with Apple</title>
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+                 display: flex; justify-content: center; align-items: center;
+                 min-height: 100vh; margin: 0; background: #f5f5f7; }
+          .container { text-align: center; padding: 2rem; background: white;
+                      border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+          h2 { color: #4caf50; margin: 0 0 1rem 0; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h2>✓ Authentication Successful!</h2>
+          <p>Returning to app...</p>
+        </div>
+      </body>
+    </html>
+  `);
+});
 
 // Basic routes
 app.get('/', (req, res) => {
