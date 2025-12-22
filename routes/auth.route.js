@@ -125,6 +125,7 @@ router.post(
 router.get("/me", auth, authController.getMe);
 router.put("/me", auth, upload.single("avatar"), authController.updateProfile);
 router.put("/change-password", auth, authController.changePassword);
+router.delete("/delete-account", auth, authController.deleteAccount);
 
 // Google OAuth routes
 router.get(

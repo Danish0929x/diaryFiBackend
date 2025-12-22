@@ -768,6 +768,49 @@ const forgotPasswordWithTemp = async (req, res) => {
   }
 };
 
+// Delete Account
+const deleteAccount = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    console.log(`🔵 [DELETE_ACCOUNT] Attempting to delete account for user: ${userId}`);
+
+    // Find the user
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Delete all user's entries
+    const Entry = require("../models/entry.model");
+    const deletedEntries = await Entry.deleteMany({ user: userId });
+    console.log(`🗑️ [DELETE_ACCOUNT] Deleted ${deletedEntries.deletedCount} entries`);
+
+    // Delete all user's journals
+    const deletedJournals = await Journal.deleteMany({ user: userId });
+    console.log(`🗑️ [DELETE_ACCOUNT] Deleted ${deletedJournals.deletedCount} journals`);
+
+    // Delete the user
+    await User.findByIdAndDelete(userId);
+    console.log(`✅ [DELETE_ACCOUNT] User account deleted successfully`);
+
+    return res.json({
+      success: true,
+      message: "Account deleted successfully",
+    });
+  } catch (error) {
+    console.error("❌ [DELETE_ACCOUNT] Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to delete account",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   register,
   verifyOtp,
@@ -781,4 +824,5 @@ module.exports = {
   appleSuccess,
   updateProfile,
   changePassword,
+  deleteAccount,
 };
