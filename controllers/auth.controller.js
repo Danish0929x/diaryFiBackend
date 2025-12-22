@@ -771,7 +771,7 @@ const forgotPasswordWithTemp = async (req, res) => {
 // Delete Account
 const deleteAccount = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.userId;
 
     console.log(`🔵 [DELETE_ACCOUNT] Attempting to delete account for user: ${userId}`);
 
