@@ -5,9 +5,47 @@ const multer = require("multer");
 const authController = require("../controllers/auth.controller");
 const auth = require("../middleware/auth");
 const userModel = require("../models/user.model");
+const Journal = require("../models/journal.model");
 const { avatarStorage } = require("../config/cloudinary");
 
 const router = express.Router();
+
+// Helper function to ensure default journal exists for new users
+const ensureDefaultJournal = async (userId) => {
+  try {
+    console.log(`🔍 [ensureDefaultJournal] Checking journals for user: ${userId}`);
+    const existingJournals = await Journal.countDocuments({ user: userId });
+    console.log(`📊 [ensureDefaultJournal] Existing journals count: ${existingJournals}`);
+
+    if (existingJournals === 0) {
+      console.log(`📝 [ensureDefaultJournal] Creating default journal...`);
+      const newJournal = await Journal.create({
+        user: userId,
+        name: "Journal",
+        color: "#00BFFF",
+      });
+      console.log(`✅ [ensureDefaultJournal] Default journal created successfully!`);
+      console.log(`📘 [ensureDefaultJournal] Journal details:`, {
+        id: newJournal._id,
+        name: newJournal.name,
+        color: newJournal.color,
+        user: newJournal.user
+      });
+
+      const verification = await Journal.findById(newJournal._id);
+      if (verification) {
+        console.log(`✔️ [ensureDefaultJournal] Journal verified in database`);
+      } else {
+        console.error(`❌ [ensureDefaultJournal] Journal NOT found in database after creation!`);
+      }
+    } else {
+      console.log(`📌 [ensureDefaultJournal] User already has ${existingJournals} journal(s), skipping creation`);
+    }
+  } catch (error) {
+    console.error("❌ [ensureDefaultJournal] Error:", error);
+    console.error("❌ [ensureDefaultJournal] Stack:", error.stack);
+  }
+};
 
 // Configure multer for profile image upload
 const upload = multer({
@@ -19,10 +57,12 @@ const upload = multer({
 
 // Validation rules
 const registerValidation = [
-  body("name")
+  body("username")
     .trim()
-    .isLength({ min: 2 })
-    .withMessage("Name must be at least 2 characters"),
+    .isLength({ min: 3 })
+    .withMessage("Username must be at least 3 characters")
+    .matches(/^[a-zA-Z0-9_]+$/)
+    .withMessage("Username can only contain letters, numbers, and underscores"),
   body("email")
     .isEmail()
     .normalizeEmail()
@@ -38,9 +78,9 @@ const registerValidation = [
 
 const loginValidation = [
   body("email")
-    .isEmail()
-    .normalizeEmail()
-    .withMessage("Please provide a valid email"),
+    .trim()
+    .notEmpty()
+    .withMessage("Username or email is required"),
   body("password").notEmpty().withMessage("Password is required"),
 ];
 
@@ -167,7 +207,7 @@ router.post("/google", async (req, res) => {
         console.log("Creating new Google user");
         user = await userModel.create({
           googleId,
-          name,
+          username: (name || email.split("@")[0]).toLowerCase().replace(/\s+/g, '_'),
           email,
           avatar: picture || "",
           authMethods: ["google"],
@@ -176,6 +216,9 @@ router.post("/google", async (req, res) => {
         });
       }
     }
+
+    // Ensure default journal exists for new users
+    await ensureDefaultJournal(user._id);
 
     // Generate JWT token
     const jwt = require("jsonwebtoken");
@@ -192,7 +235,7 @@ router.post("/google", async (req, res) => {
       token,
       user: {
         id: user._id,
-        name: user.name,
+        name: user.username,
         email: user.email,
         picture: user.avatar,
         googleId: user.googleId,
@@ -329,7 +372,7 @@ router.post("/google-access-token", async (req, res) => {
         console.log("Creating new Google user from access token");
         user = await userModel.create({
           googleId,
-          name: name || email.split("@")[0],
+          username: (name || email.split("@")[0]).toLowerCase().replace(/\s+/g, '_'),
           email,
           avatar: picture || "",
           authMethods: ["google"],
@@ -338,6 +381,9 @@ router.post("/google-access-token", async (req, res) => {
         });
       }
     }
+
+    // Ensure default journal exists for new users
+    await ensureDefaultJournal(user._id);
 
     // Generate JWT token
     const jwt = require("jsonwebtoken");
@@ -352,7 +398,7 @@ router.post("/google-access-token", async (req, res) => {
       token,
       user: {
         id: user._id,
-        name: user.name,
+        name: user.username,
         email: user.email,
         picture: user.avatar,
         googleId: user.googleId,
@@ -462,7 +508,7 @@ router.post("/apple", async (req, res) => {
         console.log("Creating new Apple user from ID token");
         user = await userModel.create({
           appleId,
-          name: name || email.split("@")[0] || "Apple User",
+          username: (name || email.split("@")[0] || `apple_user_${appleId.substring(0, 8)}`).toLowerCase().replace(/\s+/g, '_'),
           email: email || `apple_${appleId}@example.com`,
           authMethods: ["apple"],
           isEmailVerified: !!email,
@@ -470,6 +516,9 @@ router.post("/apple", async (req, res) => {
         });
       }
     }
+
+    // Ensure default journal exists for new users
+    await ensureDefaultJournal(user._id);
 
     // Generate JWT token
     const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
@@ -482,7 +531,7 @@ router.post("/apple", async (req, res) => {
       token,
       user: {
         id: user._id,
-        name: user.name,
+        name: user.username,
         email: user.email,
         picture: user.avatar,
         authMethods: user.authMethods,

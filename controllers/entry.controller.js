@@ -4,7 +4,7 @@ const { deleteFromCloudinary } = require("../middleware/upload");
 // Create a new entry
 const createEntry = async (req, res) => {
   try {
-    const { title, description, location, createdAt, formatSpans } = req.body;
+    const { title, description, location, createdAt, formatSpans, journal } = req.body;
     const userId = req.user.userId; // From auth middleware
 
     // Validate required fields
@@ -50,6 +50,11 @@ const createEntry = async (req, res) => {
       formatSpans: parsedFormatSpans || [],
     };
 
+    // Add journal if provided
+    if (journal) {
+      entryData.journal = journal;
+    }
+
     // Add custom createdAt if provided
     if (createdAt) {
       entryData.createdAt = new Date(createdAt);
@@ -80,16 +85,25 @@ const createEntry = async (req, res) => {
 const getUserEntries = async (req, res) => {
   try {
     const userId = req.user.userId;
-    const { page = 1, limit = 10, sort = "-createdAt" } = req.query;
+    const { page = 1, limit = 10, sort = "-createdAt", journal } = req.query;
 
-    const entries = await Entry.find({ user: userId })
+    // Build query filter
+    const filter = { user: userId };
+
+    // If journal parameter is provided and not 'all', filter by journal
+    if (journal && journal !== 'all') {
+      filter.journal = journal;
+    }
+
+    const entries = await Entry.find(filter)
       .sort(sort)
       .limit(limit * 1)
       .skip((page - 1) * limit)
       .populate("user", "name email avatar")
+      .populate("journal", "name color")
       .exec();
 
-    const count = await Entry.countDocuments({ user: userId });
+    const count = await Entry.countDocuments(filter);
 
     return res.json({
       success: true,

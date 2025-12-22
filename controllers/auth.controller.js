@@ -1,6 +1,7 @@
 const jwt = require("jsonwebtoken");
 const { validationResult } = require("express-validator");
 const User = require("../models/user.model");
+const Journal = require("../models/journal.model");
 const {
   sendPasswordResetEmail,
   sendOtpEmail,
@@ -10,6 +11,44 @@ const {
 // Helper functions
 const generateToken = (userId) =>
   jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: "7d" });
+
+// Helper function to ensure default journal exists
+const ensureDefaultJournal = async (userId) => {
+  try {
+    console.log(`🔍 [ensureDefaultJournal] Checking journals for user: ${userId}`);
+    const existingJournals = await Journal.countDocuments({ user: userId });
+    console.log(`📊 [ensureDefaultJournal] Existing journals count: ${existingJournals}`);
+
+    if (existingJournals === 0) {
+      console.log(`📝 [ensureDefaultJournal] Creating default journal...`);
+      const newJournal = await Journal.create({
+        user: userId,
+        name: "Journal",
+        color: "#00BFFF",
+      });
+      console.log(`✅ [ensureDefaultJournal] Default journal created successfully!`);
+      console.log(`📘 [ensureDefaultJournal] Journal details:`, {
+        id: newJournal._id,
+        name: newJournal.name,
+        color: newJournal.color,
+        user: newJournal.user
+      });
+
+      // Verify it was actually saved
+      const verification = await Journal.findById(newJournal._id);
+      if (verification) {
+        console.log(`✔️ [ensureDefaultJournal] Journal verified in database`);
+      } else {
+        console.error(`❌ [ensureDefaultJournal] Journal NOT found in database after creation!`);
+      }
+    } else {
+      console.log(`📌 [ensureDefaultJournal] User already has ${existingJournals} journal(s), skipping creation`);
+    }
+  } catch (error) {
+    console.error("❌ [ensureDefaultJournal] Error:", error);
+    console.error("❌ [ensureDefaultJournal] Stack:", error.stack);
+  }
+};
 
 // Register User with Email/Password
 const register = async (req, res) => {
@@ -23,10 +62,12 @@ const register = async (req, res) => {
       });
     }
 
-    const { name, email, password } = req.body;
+    const { username, email, password } = req.body;
 
     // Check existing user with atomic operation
-    const existingUser = await User.findOne({ email }).select("+authMethods");
+    const existingUser = await User.findOne({
+      $or: [{ email }, { username: username.toLowerCase() }]
+    }).select("+authMethods");
     if (existingUser) {
       // Scenario 1: Existing Google user wants to add email/password
       if (
@@ -38,7 +79,7 @@ const register = async (req, res) => {
         const otp = existingUser.createEmailOtp();
         await existingUser.save();
 
-        await sendOtpEmail(email, otp, existingUser.name);
+        await sendOtpEmail(email, otp, existingUser.username);
         console.log(`✅ OTP sent to ${email} for account linking: ${otp}`);
 
         return res.status(200).json({
@@ -52,13 +93,13 @@ const register = async (req, res) => {
       }
       return res.status(400).json({
         success: false,
-        message: "Account already exists with this email",
+        message: "Account already exists with this email or username",
       });
     }
 
     // New email/password registration with OTP
     const user = await User.create({
-      name,
+      username: username.toLowerCase(),
       email,
       password,
       authMethods: ["email"],
@@ -68,7 +109,7 @@ const register = async (req, res) => {
     // Generate and send OTP
     const otp = user.createEmailOtp();
     await user.save();
-    await sendOtpEmail(email, otp, name);
+    await sendOtpEmail(email, otp, username);
 
     console.log(`✅ OTP sent to ${email}: ${otp}`); // For development/testing
 
@@ -102,7 +143,14 @@ const login = async (req, res) => {
 
     const { email, password } = req.body;
     console.log(req.body);
-    const user = await User.findOne({ email }).select("+password +authMethods");
+
+    // Check if input contains '@' to determine if it's an email or username
+    const isEmail = email.includes('@');
+
+    // Find user by email or username
+    const user = await User.findOne(
+      isEmail ? { email } : { username: email.toLowerCase() }
+    ).select("+password +authMethods");
 
     if (!user) {
       return res.status(400).json({
@@ -163,7 +211,7 @@ const login = async (req, res) => {
       token: authToken,
       user: {
         id: updatedUser._id,
-        name: updatedUser.name,
+        name: updatedUser.username,
         email: updatedUser.email,
         picture: updatedUser.avatar,
         googleId: updatedUser.googleId,
@@ -272,7 +320,7 @@ const getMe = async (req, res) => {
       success: true,
       user: {
         id: user._id,
-        name: user.name,
+        name: user.username,
         email: user.email,
         picture: user.avatar,
         googleId: user.googleId,
@@ -295,6 +343,10 @@ const googleSuccess = async (req, res) => {
     if (!req.user) {
       return res.redirect(`${process.env.CLIENT_URL}/login?error=auth_failed`);
     }
+
+    // Ensure default journal exists
+    await ensureDefaultJournal(req.user._id);
+
     // Check if Google-only user needs to set password
     const needsPasswordSetup =
       req.user.authMethods.includes("google") &&
@@ -348,6 +400,9 @@ const appleSuccess = async (req, res) => {
         </html>
       `);
     }
+
+    // Ensure default journal exists
+    await ensureDefaultJournal(req.user._id);
 
     const token = generateToken(req.user._id);
     console.log('🍎 [APPLE_SUCCESS] Token generated:', token.substring(0, 20) + '...');
@@ -449,6 +504,9 @@ const verifyOtp = async (req, res) => {
     user.otpAttempts = 0;
     await user.save();
 
+    // Create default "Journal" if user doesn't have any journals
+    await ensureDefaultJournal(user._id);
+
     // Generate JWT token
     const authToken = generateToken(user._id);
 
@@ -458,7 +516,7 @@ const verifyOtp = async (req, res) => {
       token: authToken,
       user: {
         id: user._id,
-        name: user.name,
+        name: user.username,
         email: user.email,
         picture: user.avatar,
         googleId: user.googleId,
@@ -508,7 +566,7 @@ const resendOtp = async (req, res) => {
     await user.save();
 
     // Send OTP email
-    await sendOtpEmail(email, otp, user.name);
+    await sendOtpEmail(email, otp, user.username);
 
     console.log(`✅ OTP resent to ${email}: ${otp}`); // For development/testing
 
@@ -525,16 +583,16 @@ const resendOtp = async (req, res) => {
   }
 };
 
-// Update User Profile (name and avatar)
+// Update User Profile (username and avatar)
 const updateProfile = async (req, res) => {
   try {
     const userId = req.user.userId;
     const { name } = req.body;
     const updateData = {};
 
-    // Update name if provided
+    // Update username if provided
     if (name && name.trim()) {
-      updateData.name = name.trim();
+      updateData.username = name.trim().toLowerCase();
     }
 
     // Update avatar if file uploaded
@@ -567,7 +625,7 @@ const updateProfile = async (req, res) => {
       message: "Profile updated successfully",
       user: {
         id: updatedUser._id,
-        name: updatedUser.name,
+        name: updatedUser.username,
         email: updatedUser.email,
         picture: updatedUser.avatar,
         googleId: updatedUser.googleId,
@@ -692,7 +750,7 @@ const forgotPasswordWithTemp = async (req, res) => {
     await user.save();
 
     // Send temporary password via email
-    await sendTempPasswordEmail(email, tempPassword, user.name);
+    await sendTempPasswordEmail(email, tempPassword, user.username);
 
     console.log(`✅ Temporary password sent to ${email}: ${tempPassword}`); // For development/testing
 

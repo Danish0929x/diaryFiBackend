@@ -33,6 +33,11 @@ const entrySchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    journal: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Journal",
+      index: true,
+    },
     title: {
       type: String,
       required: true,
