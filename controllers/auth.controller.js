@@ -217,6 +217,7 @@ const login = async (req, res) => {
         googleId: updatedUser.googleId,
         authMethods: updatedUser.authMethods,
         isEmailVerified: updatedUser.isEmailVerified,
+        isPremium: updatedUser.isPremium,
       },
     });
   } catch (error) {
@@ -326,6 +327,7 @@ const getMe = async (req, res) => {
         googleId: user.googleId,
         authMethods: user.authMethods,
         isEmailVerified: user.isEmailVerified,
+        isPremium: user.isPremium,
       },
     });
   } catch (error) {
@@ -522,6 +524,7 @@ const verifyOtp = async (req, res) => {
         googleId: user.googleId,
         isEmailVerified: true,
         authMethods: user.authMethods,
+        isPremium: user.isPremium,
       },
     });
   } catch (error) {
@@ -631,6 +634,7 @@ const updateProfile = async (req, res) => {
         googleId: updatedUser.googleId,
         authMethods: updatedUser.authMethods,
         isEmailVerified: updatedUser.isEmailVerified,
+        isPremium: updatedUser.isPremium,
       },
     });
   } catch (error) {
