@@ -69,8 +69,13 @@ const register = async (req, res) => {
       $or: [{ email }, { username: username.toLowerCase() }]
     }).select("+authMethods");
     if (existingUser) {
-      // Scenario 1: Existing Google user wants to add email/password
+      // Check if email exists
+      const emailExists = existingUser.email === email;
+      const usernameExists = existingUser.username === username.toLowerCase();
+
+      // Scenario 1: Existing Google user with SAME EMAIL wants to add email/password
       if (
+        emailExists &&
         existingUser.authMethods.includes("google") &&
         !existingUser.authMethods.includes("email")
       ) {
@@ -91,9 +96,18 @@ const register = async (req, res) => {
           email: email,
         });
       }
+
+      // Otherwise, user already exists - show error
+      let errorMessage = "User with this email already exists";
+      if (!emailExists && usernameExists) {
+        errorMessage = "Username already taken";
+      } else if (emailExists && usernameExists) {
+        errorMessage = "User with this email already exists";
+      }
+
       return res.status(400).json({
         success: false,
-        message: "Account already exists with this email or username",
+        message: errorMessage,
       });
     }
 

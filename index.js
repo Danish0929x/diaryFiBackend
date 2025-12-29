@@ -138,6 +138,7 @@ require("./config/passport")(passport);
 app.use("/api/auth", require("./routes/auth.route.js"));
 app.use("/api/entries", require("./routes/entry.route.js"));
 app.use("/api/journals", require("./routes/journal.routes.js"));
+app.use("/api/purchase", require("./routes/purchase.route.js"));
 
 // Apple Sign-In callback route for mobile (used by sign_in_with_apple package on Android)
 // The sign_in_with_apple package needs to intercept the raw callback data

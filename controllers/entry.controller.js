@@ -7,11 +7,12 @@ const createEntry = async (req, res) => {
     const { title, description, location, createdAt, formatSpans, journal } = req.body;
     const userId = req.user.userId; // From auth middleware
 
-    // Validate required fields
-    if (!title || !description) {
+    // Validate required fields - at least one of title, description, or media is required
+    const hasMedia = req.uploadedMedia && req.uploadedMedia.length > 0;
+    if (!title && !description && !hasMedia) {
       return res.status(400).json({
         success: false,
-        message: "Title and description are required",
+        message: "At least one of title, description, or media is required",
       });
     }
 

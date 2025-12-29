@@ -40,14 +40,16 @@ const entrySchema = new mongoose.Schema(
     },
     title: {
       type: String,
-      required: true,
+      required: false,
       trim: true,
       maxlength: 200,
+      default: "",
     },
     description: {
       type: String,
-      required: true,
+      required: false,
       trim: true,
+      default: "",
     },
     formatSpans: [
       {
