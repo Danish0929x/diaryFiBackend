@@ -169,17 +169,26 @@ const updateEntry = async (req, res) => {
       });
     }
 
-    // Update fields if provided
-    if (title) entry.title = title;
-    if (description) entry.description = description;
+    // Update fields if provided (including empty strings)
+    if (title !== undefined) entry.title = title;
+    if (description !== undefined) entry.description = description;
 
-    // Parse and update location if provided
-    if (location) {
-      try {
-        const parsedLocation = typeof location === "string" ? JSON.parse(location) : location;
-        entry.location = parsedLocation;
-      } catch (e) {
-        console.error("Error parsing location:", e);
+    // Parse and update location if provided (or clear if null)
+    if (location !== undefined) {
+      if (location === null || location === "null") {
+        // Clear location by setting to default empty location
+        entry.location = {
+          type: "Point",
+          coordinates: [0, 0],
+          address: "",
+        };
+      } else {
+        try {
+          const parsedLocation = typeof location === "string" ? JSON.parse(location) : location;
+          entry.location = parsedLocation;
+        } catch (e) {
+          console.error("Error parsing location:", e);
+        }
       }
     }
 
@@ -197,6 +206,14 @@ const updateEntry = async (req, res) => {
     // Add new media if uploaded
     if (req.uploadedMedia && req.uploadedMedia.length > 0) {
       entry.media.push(...req.uploadedMedia);
+    }
+
+    // Validate that at least title or description exists
+    if (!entry.title && !entry.description) {
+      return res.status(400).json({
+        success: false,
+        message: "At least title or description is required",
+      });
     }
 
     await entry.save();
