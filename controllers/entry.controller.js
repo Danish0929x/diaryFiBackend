@@ -322,7 +322,7 @@ const deleteMediaFromEntry = async (req, res) => {
   }
 };
 
-// Search entries by title or description
+// Search entries by title, description, or location
 const searchEntries = async (req, res) => {
   try {
     const userId = req.user.userId;
@@ -340,6 +340,7 @@ const searchEntries = async (req, res) => {
       $or: [
         { title: { $regex: query, $options: "i" } },
         { description: { $regex: query, $options: "i" } },
+        { "location.address": { $regex: query, $options: "i" } },
       ],
     })
       .sort("-createdAt")
@@ -353,6 +354,7 @@ const searchEntries = async (req, res) => {
       $or: [
         { title: { $regex: query, $options: "i" } },
         { description: { $regex: query, $options: "i" } },
+        { "location.address": { $regex: query, $options: "i" } },
       ],
     });
 
