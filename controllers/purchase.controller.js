@@ -29,7 +29,10 @@ const verifyPurchase = async (req, res) => {
     }
 
     // Verify product ID is valid
-    const validProducts = ['premium_monthly', 'premium_yearly'];
+    const validProducts = [
+      'com.journal.diaryfi.monthly',
+      'com.journal.diaryfi.yearly'
+    ];
     if (!validProducts.includes(productId)) {
       return res.status(400).json({
         success: false,
