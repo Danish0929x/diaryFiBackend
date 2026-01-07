@@ -64,6 +64,28 @@ exports.createJournal = async (req, res) => {
       });
     }
 
+    // Get user to check premium status
+    const User = require("../models/user.model");
+    const user = await User.findById(req.user.userId);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Check journal limit for free users (3 journals max)
+    if (!user.isPremium) {
+      const journalCount = await Journal.countDocuments({ user: req.user.userId });
+      if (journalCount >= 3) {
+        return res.status(403).json({
+          success: false,
+          message: "Free users can create maximum 3 journals. Upgrade to premium for unlimited journals.",
+        });
+      }
+    }
+
     const journal = new Journal({
       user: req.user.userId,
       name: name.trim(),

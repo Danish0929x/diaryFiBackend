@@ -7,6 +7,52 @@ const createEntry = async (req, res) => {
     const { title, description, location, createdAt, formatSpans, journal } = req.body;
     const userId = req.user.userId; // From auth middleware
 
+    // Get user to check premium status
+    const User = require("../models/user.model");
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Check entry limit for free users (30 entries max)
+    if (!user.isPremium) {
+      const entryCount = await Entry.countDocuments({ user: userId });
+      if (entryCount >= 30) {
+        return res.status(403).json({
+          success: false,
+          message: "Free users can create maximum 30 entries. Upgrade to premium for unlimited entries.",
+        });
+      }
+    }
+
+    // Check media restrictions for free users
+    if (!user.isPremium && req.uploadedMedia && req.uploadedMedia.length > 0) {
+      // Check for video (not allowed for free users)
+      const hasVideo = req.uploadedMedia.some(m =>
+        m.type === 'video' ||
+        /\.(mp4|mov|avi|mkv|webm)$/i.test(m.filename || '')
+      );
+
+      if (hasVideo) {
+        return res.status(403).json({
+          success: false,
+          message: "Video uploads are only available for premium users. Upgrade to premium to attach videos.",
+        });
+      }
+
+      // Check media count (max 1 for free users)
+      if (req.uploadedMedia.length > 1) {
+        return res.status(403).json({
+          success: false,
+          message: "Free users can only attach 1 media file per entry. Upgrade to premium for unlimited media attachments.",
+        });
+      }
+    }
+
     // Validate required fields - at least one of title, description, or media is required
     const hasMedia = req.uploadedMedia && req.uploadedMedia.length > 0;
     if (!title && !description && !hasMedia) {
@@ -167,6 +213,35 @@ const updateEntry = async (req, res) => {
         success: false,
         message: "Entry not found",
       });
+    }
+
+    // Get user to check premium status for media uploads
+    const User = require("../models/user.model");
+    const user = await User.findById(userId);
+
+    // Check media restrictions for free users when adding new media
+    if (!user.isPremium && req.uploadedMedia && req.uploadedMedia.length > 0) {
+      // Check for video (not allowed for free users)
+      const hasVideo = req.uploadedMedia.some(m =>
+        m.type === 'video' ||
+        /\.(mp4|mov|avi|mkv|webm)$/i.test(m.filename || '')
+      );
+
+      if (hasVideo) {
+        return res.status(403).json({
+          success: false,
+          message: "Video uploads are only available for premium users.",
+        });
+      }
+
+      // Calculate total media count (existing + new)
+      const totalMediaCount = entry.media.length + req.uploadedMedia.length;
+      if (totalMediaCount > 1) {
+        return res.status(403).json({
+          success: false,
+          message: "Free users can only have 1 media file per entry.",
+        });
+      }
     }
 
     // Update fields if provided (including empty strings)
