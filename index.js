@@ -141,13 +141,95 @@ app.use("/api/journals", require("./routes/journal.routes.js"));
 app.use("/api/purchase", require("./routes/purchase.route.js"));
 
 // Apple Sign-In callback route for mobile (used by sign_in_with_apple package on Android)
-// The sign_in_with_apple package needs to intercept the raw callback data
-// So we DON'T use passport here - just return a simple success page
-app.get("/callbacks/sign_in_with_apple", (req, res) => {
+app.get("/callbacks/sign_in_with_apple", async (req, res) => {
   console.log("🍎 [CALLBACK GET] Apple callback received");
   console.log("🍎 [CALLBACK GET] Query:", JSON.stringify(req.query, null, 2));
 
-  // Simple HTML page - user needs to manually close on Android
+  const { code, id_token, state, user } = req.query;
+
+  // If we have an id_token, authenticate the user and redirect to app with our JWT
+  if (id_token) {
+    try {
+      const jwt = require("jsonwebtoken");
+      const userModel = require("./models/user.model");
+      const Journal = require("./models/journal.model");
+
+      // Decode the Apple ID token
+      const decoded = jwt.decode(id_token);
+      const appleId = decoded?.sub;
+      const email = decoded?.email || "";
+
+      if (appleId) {
+        // Find or create user
+        let dbUser = await userModel.findOneAndUpdate(
+          { appleId },
+          { $set: { lastLogin: new Date() } },
+          { new: true }
+        );
+
+        if (!dbUser && email) {
+          dbUser = await userModel.findOneAndUpdate(
+            { email },
+            {
+              $set: { appleId, lastLogin: new Date(), isEmailVerified: true },
+              $addToSet: { authMethods: "apple" },
+            },
+            { new: true }
+          );
+        }
+
+        if (!dbUser) {
+          const username = (email.split("@")[0] || "apple_user_" + appleId.substring(0, 8)).toLowerCase().replace(/\s+/g, '_');
+          dbUser = await userModel.create({
+            appleId,
+            username: username,
+            email: email || "apple_" + appleId + "@privaterelay.appleid.com",
+            authMethods: ["apple"],
+            isEmailVerified: !!email,
+            lastLogin: new Date(),
+          });
+
+          // Create default journal
+          const existingJournals = await Journal.countDocuments({ user: dbUser._id });
+          if (existingJournals === 0) {
+            await Journal.create({ user: dbUser._id, name: "Journal", color: "#00BFFF" });
+          }
+        }
+
+        // Generate our JWT token
+        const token = jwt.sign({ userId: dbUser._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
+
+        // Redirect to app with our token using custom scheme
+        const appUrl = "diaryfi://auth/apple?token=" + token + "&userId=" + dbUser._id;
+        console.log("🍎 [CALLBACK GET] Redirecting to app:", appUrl);
+
+        return res.send(`
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Sign in with Apple</title>
+              <script>
+                window.location.href = "${appUrl}";
+              </script>
+            </head>
+            <body style="display: flex; justify-content: center; align-items: center; min-height: 100vh; font-family: -apple-system, sans-serif;">
+              <div style="text-align: center;">
+                <p style="font-size: 18px; color: #4caf50;">✓ Authentication Successful!</p>
+                <p style="color: #666;">Returning to DiaryFi...</p>
+                <p style="margin-top: 20px;"><a href="${appUrl}" style="color: #007aff; text-decoration: none;">Tap here if not redirected</a></p>
+              </div>
+            </body>
+          </html>
+        `);
+      }
+    } catch (error) {
+      console.error("🍎 [CALLBACK GET] Error processing auth:", error);
+    }
+  }
+
+  // Fallback - just show success message
   res.send(`
     <!DOCTYPE html>
     <html>
@@ -155,30 +237,12 @@ app.get("/callbacks/sign_in_with_apple", (req, res) => {
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Sign in with Apple</title>
-        <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
-                 display: flex; justify-content: center; align-items: center;
-                 min-height: 100vh; margin: 0; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-          .container { text-align: center; padding: 2.5rem; background: white;
-                      border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-                      max-width: 400px; width: 90%; }
-          h2 { color: #4caf50; margin: 0 0 1rem 0; font-size: 1.5rem; }
-          p { color: #555; margin: 0.5rem 0; line-height: 1.5; }
-          .instruction { background: #f0f9ff; border-left: 4px solid #007aff;
-                        padding: 1rem; margin: 1.5rem 0; text-align: left; border-radius: 4px; }
-          .instruction strong { color: #007aff; display: block; margin-bottom: 0.5rem; }
-          .icon { font-size: 3rem; margin-bottom: 1rem; }
-        </style>
       </head>
-      <body>
-        <div class="container">
-          <div class="icon">✓</div>
-          <h2>Authentication Successful!</h2>
-          <p>Your Apple Sign In was successful.</p>
-          <div class="instruction">
-            <strong>Next Step:</strong>
-            Please tap the <strong>X</strong> or <strong>Back button</strong> to close this window and return to DiaryFi.
-          </div>
+      <body style="display: flex; justify-content: center; align-items: center; min-height: 100vh; font-family: -apple-system, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+        <div style="text-align: center; padding: 2rem; background: white; border-radius: 16px; max-width: 90%; width: 400px;">
+          <p style="font-size: 48px; margin: 0;">✓</p>
+          <p style="font-size: 18px; color: #4caf50; margin: 1rem 0;">Authentication Successful!</p>
+          <p style="color: #666;">Please close this window to return to DiaryFi.</p>
         </div>
       </body>
     </html>
@@ -190,39 +254,22 @@ app.post("/callbacks/sign_in_with_apple", (req, res) => {
   console.log("🍎 [CALLBACK POST] Body:", JSON.stringify(req.body, null, 2));
   console.log("🍎 [CALLBACK POST] Query:", JSON.stringify(req.query, null, 2));
 
-  const { code, id_token, state } = req.body;
+  const { code, id_token, state, user } = req.body;
 
-  // Build the redirect URL with query params
-  const params = new URLSearchParams({
-    ...(code && { code }),
-    ...(id_token && { id_token }),
-    ...(state && { state }),
-  });
+  // Build the full redirect URL with query params
+  // The sign_in_with_apple Flutter package intercepts this URL
+  const params = new URLSearchParams();
+  if (code) params.append("code", code);
+  if (id_token) params.append("id_token", id_token);
+  if (state) params.append("state", state);
+  if (user) params.append("user", typeof user === "string" ? user : JSON.stringify(user));
 
-  const redirectUrl = `/callbacks/sign_in_with_apple?${params.toString()}`;
-  console.log(
-    "🍎 [CALLBACK POST] Redirecting to GET with params:",
-    redirectUrl
-  );
+  // Use full URL - the package intercepts URLs matching the redirect URI
+  const redirectUrl = `https://diaryfibackend.onrender.com/callbacks/sign_in_with_apple?${params.toString()}`;
+  console.log("🍎 [CALLBACK POST] Redirecting to:", redirectUrl);
 
-  // Return HTML with JavaScript redirect instead of HTTP redirect
-  // This keeps the page in the WebView context so the package can intercept
-  res.send(`
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta charset="UTF-8">
-        <title>Sign in with Apple</title>
-      </head>
-      <body>
-        <script>
-          // Immediately redirect to GET endpoint with params in URL
-          window.location.href = '${redirectUrl}';
-        </script>
-        <p>Redirecting...</p>
-      </body>
-    </html>
-  `);
+  // Use HTTP 303 redirect (See Other) - this is what Apple recommends for POST->GET redirect
+  res.redirect(303, redirectUrl);
 });
 
 // Basic routes
