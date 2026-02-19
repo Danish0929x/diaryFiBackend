@@ -160,12 +160,18 @@ router.post("/google", async (req, res) => {
     console.log("Received ID Token:", idToken.substring(0, 50) + "...");
 
     // Verify the token with Google
+    // Accept tokens from any registered client ID (Android, iOS, Web)
     const { OAuth2Client } = require("google-auth-library");
-    const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+    const client = new OAuth2Client();
+
+    const acceptedAudiences = [
+      process.env.GOOGLE_CLIENT_ID,        // Android client ID
+      process.env.GOOGLE_IOS_CLIENT_ID,    // iOS client ID
+    ].filter(Boolean);
 
     const ticket = await client.verifyIdToken({
       idToken: idToken,
-      audience: process.env.GOOGLE_CLIENT_ID,
+      audience: acceptedAudiences,
     });
 
     const payload = ticket.getPayload();
