@@ -204,7 +204,7 @@ const updateEntry = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.userId;
-    const { title, description, location, formatSpans } = req.body;
+    const { title, description, location, formatSpans, createdAt } = req.body;
 
     const entry = await Entry.findOne({ _id: id, user: userId });
 
@@ -275,6 +275,14 @@ const updateEntry = async (req, res) => {
         console.log("📝 [Backend] Updated formatSpans:", parsedFormatSpans);
       } catch (e) {
         console.error("Error parsing formatSpans:", e);
+      }
+    }
+
+    // Update createdAt if provided
+    if (createdAt !== undefined) {
+      const parsedDate = new Date(createdAt);
+      if (!isNaN(parsedDate.getTime())) {
+        entry.createdAt = parsedDate;
       }
     }
 
