@@ -78,6 +78,11 @@ const entrySchema = new mongoose.Schema(
         trim: true,
       },
     },
+    // Explicitly defined so it can be updated (timestamps:true makes it immutable by default)
+    createdAt: {
+      type: Date,
+      immutable: false,
+    },
   },
   {
     timestamps: true, // Automatically adds createdAt and updatedAt
