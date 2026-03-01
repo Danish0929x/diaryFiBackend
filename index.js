@@ -139,6 +139,7 @@ app.use("/api/auth", require("./routes/auth.route.js"));
 app.use("/api/entries", require("./routes/entry.route.js"));
 app.use("/api/journals", require("./routes/journal.routes.js"));
 app.use("/api/purchase", require("./routes/purchase.route.js"));
+app.use("/api/support", require("./routes/support.route.js"));
 
 // Apple Sign-In callback route for mobile (used by sign_in_with_apple package on Android)
 app.get("/callbacks/sign_in_with_apple", async (req, res) => {

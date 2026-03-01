@@ -368,6 +368,7 @@ const sendTempPasswordEmail = async (email, tempPassword, name) => {
 };
 
 module.exports = {
+  sendEmail,
   sendPasswordResetEmail,
   sendWelcomeEmail,
   sendOtpEmail,
