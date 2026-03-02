@@ -2,13 +2,13 @@ const { sendEmail } = require("../utils/emailService");
 
 const sendSupportEmail = async (req, res) => {
   try {
-    const { subject, message } = req.body;
+    const { email, subject, message } = req.body;
 
     // Validate input
-    if (!subject || !message) {
+    if (!email || !subject || !message) {
       return res.status(400).json({
         success: false,
-        message: "Subject and message are required",
+        message: "Email, subject, and message are required",
       });
     }
 
@@ -49,7 +49,13 @@ const sendSupportEmail = async (req, res) => {
 
               <div style="background: #f0f9ff; padding: 15px; border-radius: 8px; margin: 20px 0;">
                 <p style="color: #1e40af; font-size: 14px; margin: 0; font-weight: 500;">
-                  📧 Sent via DiaryFi Support Form
+                  📧 User Email: ${email}
+                </p>
+              </div>
+
+              <div style="background: #f0f9ff; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                <p style="color: #1e40af; font-size: 14px; margin: 0; font-weight: 500;">
+                  Sent via DiaryFi Support Form
                 </p>
               </div>
             </div>
