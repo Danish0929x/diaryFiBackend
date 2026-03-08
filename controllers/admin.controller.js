@@ -372,7 +372,7 @@ const createCoupon = async (req, res) => {
       });
     }
 
-    const { code, type, discount, expiresAt, maxUsage } = req.body;
+    const { code, type, expiresAt, maxUsage } = req.body;
     const Coupon = require("../models/coupon.model");
 
     // Check if coupon code already exists
@@ -381,14 +381,6 @@ const createCoupon = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Coupon code already exists",
-      });
-    }
-
-    // Validate discount percentage
-    if (discount < 0 || discount > 100) {
-      return res.status(400).json({
-        success: false,
-        message: "Discount must be between 0 and 100",
       });
     }
 
@@ -405,7 +397,6 @@ const createCoupon = async (req, res) => {
     const coupon = new Coupon({
       code: code.toUpperCase(),
       type,
-      discount,
       expiresAt: expirationDate,
       maxUsage: maxUsage || null,
     });
@@ -459,6 +450,115 @@ const deleteCoupon = async (req, res) => {
   }
 };
 
+// Apply coupon directly (grant premium without IAP)
+const applyCoupon = async (req, res) => {
+  try {
+    const { couponCode, subscriptionType } = req.body;
+    const userId = req.user.userId;
+    const User = require("../models/user.model");
+    const Coupon = require("../models/coupon.model");
+
+    console.log("💰 Applying coupon directly:");
+    console.log(`  User ID: ${userId}`);
+    console.log(`  Coupon Code: ${couponCode}`);
+    console.log(`  Subscription Type: ${subscriptionType}`);
+
+    // Validate input
+    if (!couponCode || !subscriptionType) {
+      return res.status(400).json({
+        success: false,
+        message: "Coupon code and subscription type are required",
+      });
+    }
+
+    // Find coupon
+    const coupon = await Coupon.findOne({ code: couponCode.toUpperCase() });
+
+    if (!coupon) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid coupon code",
+      });
+    }
+
+    // Check if coupon is active
+    if (!coupon.isActive) {
+      return res.status(400).json({
+        success: false,
+        message: "This coupon is inactive",
+      });
+    }
+
+    // Check if coupon has expired
+    if (new Date() > new Date(coupon.expiresAt)) {
+      return res.status(400).json({
+        success: false,
+        message: "This coupon has expired",
+      });
+    }
+
+    // Check if coupon type matches subscription type
+    if (coupon.type !== subscriptionType) {
+      return res.status(400).json({
+        success: false,
+        message: `This coupon is only valid for ${coupon.type} subscriptions`,
+      });
+    }
+
+    // Check max usage limit
+    if (coupon.maxUsage && coupon.usageCount >= coupon.maxUsage) {
+      return res.status(400).json({
+        success: false,
+        message: "This coupon has reached its usage limit",
+      });
+    }
+
+    // Increment coupon usage
+    await Coupon.findByIdAndUpdate(coupon._id, {
+      $inc: { usageCount: 1 },
+    });
+
+    // Update user to premium
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { isPremium: true },
+      { new: true }
+    );
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    console.log("✅ Coupon applied - User upgraded to premium");
+
+    return res.json({
+      success: true,
+      message: "Coupon applied successfully",
+      appliedCoupon: {
+        code: coupon.code,
+        type: coupon.type,
+      },
+      user: {
+        id: user._id,
+        name: user.username,
+        email: user.email,
+        picture: user.avatar,
+        isPremium: user.isPremium,
+      },
+    });
+  } catch (error) {
+    console.error("Apply coupon error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to apply coupon",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
 module.exports = {
   login,
   getMe,
@@ -469,4 +569,5 @@ module.exports = {
   getCoupons,
   createCoupon,
   deleteCoupon,
+  applyCoupon,
 };

@@ -15,12 +15,6 @@ const couponSchema = new mongoose.Schema(
       enum: ['monthly', 'yearly'],
       required: true,
     },
-    discount: {
-      type: Number,
-      required: true,
-      min: 0,
-      max: 100,
-    },
     expiresAt: {
       type: Date,
       required: true,

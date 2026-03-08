@@ -65,7 +65,6 @@ router.post(
   [
     body("code").notEmpty().withMessage("Coupon code is required"),
     body("type").isIn(["monthly", "yearly"]).withMessage("Type must be monthly or yearly"),
-    body("discount").isFloat({ min: 0, max: 100 }).withMessage("Discount must be between 0 and 100"),
     body("expiresAt").isISO8601().withMessage("Valid expiration date is required"),
   ],
   adminController.createCoupon
