@@ -21,6 +21,7 @@ const corsOptions = {
     // Define allowed origins
     const allowedOrigins = [
       "http://localhost:3000",
+      "http://localhost:5173", // Vite dev server for admin dashboard
       "http://localhost:8081",
       "http://localhost:19006",
       "http://192.168.1.1:8081", // Add your local IP if needed
@@ -136,6 +137,7 @@ require("./config/passport")(passport);
 
 // Routes
 app.use("/api/auth", require("./routes/auth.route.js"));
+app.use("/api/admin", require("./routes/admin.route.js"));
 app.use("/api/entries", require("./routes/entry.route.js"));
 app.use("/api/journals", require("./routes/journal.routes.js"));
 app.use("/api/purchase", require("./routes/purchase.route.js"));
