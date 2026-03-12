@@ -44,11 +44,11 @@ const createEntry = async (req, res) => {
         });
       }
 
-      // Check media count (max 1 for free users)
-      if (req.uploadedMedia.length > 1) {
+      // Check media count (max 3 for free users)
+      if (req.uploadedMedia.length > 3) {
         return res.status(403).json({
           success: false,
-          message: "Free users can only attach 1 media file per entry. Upgrade to premium for unlimited media attachments.",
+          message: "Free users can attach up to 3 media files per entry. Upgrade to premium for unlimited media attachments.",
         });
       }
     }
