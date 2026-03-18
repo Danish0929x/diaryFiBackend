@@ -250,10 +250,10 @@ const updateEntry = async (req, res) => {
 
       // Calculate total media count (existing + new)
       const totalMediaCount = entry.media.length + req.uploadedMedia.length;
-      if (totalMediaCount > 1) {
+      if (totalMediaCount > 3) {
         return res.status(403).json({
           success: false,
-          message: "Free users can only have 1 media file per entry.",
+          message: "Free users can have up to 3 media files per entry.",
         });
       }
     }
