@@ -342,6 +342,9 @@ const getMe = async (req, res) => {
         authMethods: user.authMethods,
         isEmailVerified: user.isEmailVerified,
         isPremium: user.isPremium,
+        isEncryptionEnabled: user.isEncryptionEnabled || false,
+        encryptionSalt: user.encryptionSalt || null,
+        encryptionKeyCheck: user.encryptionKeyCheck || null,
       },
     });
   } catch (error) {
@@ -349,6 +352,116 @@ const getMe = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Server error",
+    });
+  }
+};
+
+// Save encryption metadata (salt and keyCheck) for cross-device support
+const saveEncryptionMetadata = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { encryptionSalt, encryptionKeyCheck } = req.body;
+
+    if (!encryptionSalt || !encryptionKeyCheck) {
+      return res.status(400).json({
+        success: false,
+        message: "encryptionSalt and encryptionKeyCheck are required",
+      });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      userId,
+      {
+        $set: {
+          encryptionSalt,
+          encryptionKeyCheck,
+          isEncryptionEnabled: true,
+        },
+      },
+      { new: true }
+    );
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: "Encryption metadata saved successfully",
+    });
+  } catch (error) {
+    console.error("Save encryption metadata error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to save encryption metadata",
+    });
+  }
+};
+
+// Get encryption metadata for cross-device key restoration
+const getEncryptionMetadata = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    return res.json({
+      success: true,
+      isEncryptionEnabled: user.isEncryptionEnabled || false,
+      encryptionSalt: user.encryptionSalt || null,
+      encryptionKeyCheck: user.encryptionKeyCheck || null,
+    });
+  } catch (error) {
+    console.error("Get encryption metadata error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to get encryption metadata",
+    });
+  }
+};
+
+// Disable encryption for user
+const disableEncryption = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+
+    const user = await User.findByIdAndUpdate(
+      userId,
+      {
+        $set: {
+          isEncryptionEnabled: false,
+          encryptionSalt: null,
+          encryptionKeyCheck: null,
+        },
+      },
+      { new: true }
+    );
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: "Encryption disabled successfully",
+    });
+  } catch (error) {
+    console.error("Disable encryption error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to disable encryption",
     });
   }
 };
@@ -843,4 +956,7 @@ module.exports = {
   updateProfile,
   changePassword,
   deleteAccount,
+  saveEncryptionMetadata,
+  getEncryptionMetadata,
+  disableEncryption,
 };

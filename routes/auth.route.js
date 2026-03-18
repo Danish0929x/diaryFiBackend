@@ -127,6 +127,11 @@ router.put("/me", auth, upload.single("avatar"), authController.updateProfile);
 router.put("/change-password", auth, authController.changePassword);
 router.delete("/delete-account", auth, authController.deleteAccount);
 
+// Encryption metadata routes
+router.post("/encryption", auth, authController.saveEncryptionMetadata);
+router.get("/encryption", auth, authController.getEncryptionMetadata);
+router.delete("/encryption", auth, authController.disableEncryption);
+
 // Google OAuth routes
 router.get(
   "/google",

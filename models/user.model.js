@@ -79,6 +79,19 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    // Encryption metadata
+    encryptionSalt: {
+      type: String,
+      default: null,
+    },
+    encryptionKeyCheck: {
+      type: String,
+      default: null,
+    },
+    isEncryptionEnabled: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true

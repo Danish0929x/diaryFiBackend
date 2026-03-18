@@ -78,6 +78,11 @@ const entrySchema = new mongoose.Schema(
         trim: true,
       },
     },
+    // Whether entry content is encrypted
+    isEncrypted: {
+      type: Boolean,
+      default: false,
+    },
     // Explicitly defined so it can be updated (timestamps:true makes it immutable by default)
     createdAt: {
       type: Date,

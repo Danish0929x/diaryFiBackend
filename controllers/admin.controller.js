@@ -289,9 +289,13 @@ const getEntries = async (req, res) => {
       .select("title description user createdAt media location")
       .sort({ createdAt: -1 });
 
+    // Decrypt entries before sending response
+    const { decryptEntries } = require("../utils/encryption");
+    const decryptedEntries = decryptEntries(entries);
+
     return res.json({
       success: true,
-      entries,
+      entries: decryptedEntries,
     });
   } catch (error) {
     console.error("Get entries error:", error);

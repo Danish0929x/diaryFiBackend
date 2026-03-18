@@ -159,6 +159,7 @@ const uploadToCloudinary = async (file) => {
         {
           resource_type: resourceType,
           folder: folder,
+          type: "authenticated", // Require signed URLs to access
         },
         (error, result) => {
           if (error) {
@@ -208,13 +209,39 @@ const deleteFromCloudinary = async (publicId) => {
     else if (publicId.includes("/audio/")) resourceType = "video";
     else if (publicId.includes("/documents/")) resourceType = "raw";
 
-    const result = await cloudinary.uploader.destroy(publicId, {
+    // Try authenticated type first, then fall back to upload type
+    let result = await cloudinary.uploader.destroy(publicId, {
       resource_type: resourceType,
+      type: "authenticated",
     });
+    if (result.result === "not found") {
+      result = await cloudinary.uploader.destroy(publicId, {
+        resource_type: resourceType,
+      });
+    }
     return result;
   } catch (error) {
     console.error("Error deleting from Cloudinary:", error);
     throw error;
+  }
+};
+
+/**
+ * Generate a signed URL for an authenticated Cloudinary resource.
+ * URL expires after 1 hour.
+ */
+const generateSignedUrl = (publicId, resourceType = "image") => {
+  try {
+    return cloudinary.url(publicId, {
+      type: "authenticated",
+      sign_url: true,
+      resource_type: resourceType,
+      secure: true,
+      expires_at: Math.floor(Date.now() / 1000) + 3600, // 1 hour
+    });
+  } catch (error) {
+    console.error("Error generating signed URL:", error);
+    return null;
   }
 };
 
@@ -228,4 +255,5 @@ module.exports = {
   processMediaFiles,
   uploadToCloudinary,
   deleteFromCloudinary,
+  generateSignedUrl,
 };

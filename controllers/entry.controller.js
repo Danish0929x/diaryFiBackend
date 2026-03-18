@@ -1,5 +1,6 @@
 const Entry = require("../models/entry.model");
 const { deleteFromCloudinary } = require("../middleware/upload");
+const { encryptEntryFields, decryptEntryFields, decryptEntries } = require("../utils/encryption");
 
 // Create a new entry
 const createEntry = async (req, res) => {
@@ -95,7 +96,11 @@ const createEntry = async (req, res) => {
         address: "",
       },
       formatSpans: parsedFormatSpans || [],
+      isEncrypted: true,
     };
+
+    // Encrypt text fields before saving to database
+    encryptEntryFields(entryData);
 
     // Add journal if provided
     if (journal) {
@@ -112,10 +117,13 @@ const createEntry = async (req, res) => {
     // Populate user details
     await entry.populate("user", "name email avatar");
 
+    // Decrypt fields before sending response
+    const decryptedEntry = decryptEntryFields(entry);
+
     return res.status(201).json({
       success: true,
       message: "Entry created successfully",
-      entry,
+      entry: decryptedEntry,
     });
   } catch (error) {
     console.error("Create entry error:", error);
@@ -152,9 +160,12 @@ const getUserEntries = async (req, res) => {
 
     const count = await Entry.countDocuments(filter);
 
+    // Decrypt entries before sending response
+    const decryptedEntries = decryptEntries(entries);
+
     return res.json({
       success: true,
-      entries,
+      entries: decryptedEntries,
       totalPages: Math.ceil(count / limit),
       currentPage: page,
       totalEntries: count,
@@ -186,9 +197,12 @@ const getEntryById = async (req, res) => {
       });
     }
 
+    // Decrypt fields before sending response
+    const decryptedEntry = decryptEntryFields(entry);
+
     return res.json({
       success: true,
-      entry,
+      entry: decryptedEntry,
     });
   } catch (error) {
     console.error("Get entry error:", error);
@@ -244,9 +258,9 @@ const updateEntry = async (req, res) => {
       }
     }
 
-    // Update fields if provided (including empty strings)
-    if (title !== undefined) entry.title = title;
-    if (description !== undefined) entry.description = description;
+    // Update fields if provided (including empty strings) — encrypt before saving
+    if (title !== undefined) entry.title = title ? require("../utils/encryption").encrypt(title) : title;
+    if (description !== undefined) entry.description = description ? require("../utils/encryption").encrypt(description) : description;
 
     // Parse and update location if provided (or clear if null)
     if (location !== undefined) {
@@ -260,6 +274,10 @@ const updateEntry = async (req, res) => {
       } else {
         try {
           const parsedLocation = typeof location === "string" ? JSON.parse(location) : location;
+          // Encrypt location address
+          if (parsedLocation.address) {
+            parsedLocation.address = require("../utils/encryption").encrypt(parsedLocation.address);
+          }
           entry.location = parsedLocation;
         } catch (e) {
           console.error("Error parsing location:", e);
@@ -286,9 +304,16 @@ const updateEntry = async (req, res) => {
       }
     }
 
-    // Add new media if uploaded
+    // Add new media if uploaded (encrypt URLs before saving)
     if (req.uploadedMedia && req.uploadedMedia.length > 0) {
-      entry.media.push(...req.uploadedMedia);
+      const { encrypt } = require("../utils/encryption");
+      const encryptedMedia = req.uploadedMedia.map(m => ({
+        ...m,
+        url: m.url ? encrypt(m.url) : m.url,
+        publicId: m.publicId ? encrypt(m.publicId) : m.publicId,
+        filename: m.filename ? encrypt(m.filename) : m.filename,
+      }));
+      entry.media.push(...encryptedMedia);
     }
 
     // Validate that at least title or description exists
@@ -299,13 +324,17 @@ const updateEntry = async (req, res) => {
       });
     }
 
+    entry.isEncrypted = true;
     await entry.save();
     await entry.populate("user", "name email avatar");
+
+    // Decrypt fields before sending response
+    const decryptedEntry = decryptEntryFields(entry);
 
     return res.json({
       success: true,
       message: "Entry updated successfully",
-      entry,
+      entry: decryptedEntry,
     });
   } catch (error) {
     console.error("Update entry error:", error);
@@ -331,13 +360,15 @@ const deleteEntry = async (req, res) => {
       });
     }
 
-    // Delete all associated media from Cloudinary
+    // Delete all associated media from Cloudinary (decrypt publicId first)
     if (entry.media && entry.media.length > 0) {
-      const deletePromises = entry.media.map((media) =>
-        deleteFromCloudinary(media.publicId).catch((err) => {
-          console.error(`Failed to delete media ${media.publicId}:`, err);
-        })
-      );
+      const { decrypt } = require("../utils/encryption");
+      const deletePromises = entry.media.map((media) => {
+        const publicId = decrypt(media.publicId);
+        return deleteFromCloudinary(publicId).catch((err) => {
+          console.error(`Failed to delete media ${publicId}:`, err);
+        });
+      });
       await Promise.all(deletePromises);
     }
 
@@ -380,9 +411,10 @@ const deleteMediaFromEntry = async (req, res) => {
       });
     }
 
-    // Delete from Cloudinary
+    // Delete from Cloudinary (decrypt publicId first)
     try {
-      await deleteFromCloudinary(media.publicId);
+      const { decrypt } = require("../utils/encryption");
+      await deleteFromCloudinary(decrypt(media.publicId));
     } catch (err) {
       console.error("Error deleting from Cloudinary:", err);
     }
@@ -406,6 +438,7 @@ const deleteMediaFromEntry = async (req, res) => {
 };
 
 // Search entries by title, description, or location
+// Since data is encrypted, we decrypt all user entries and filter in memory
 const searchEntries = async (req, res) => {
   try {
     const userId = req.user.userId;
@@ -418,34 +451,34 @@ const searchEntries = async (req, res) => {
       });
     }
 
-    const entries = await Entry.find({
-      user: userId,
-      $or: [
-        { title: { $regex: query, $options: "i" } },
-        { description: { $regex: query, $options: "i" } },
-        { "location.address": { $regex: query, $options: "i" } },
-      ],
-    })
+    // Fetch all user entries and decrypt them for searching
+    const allEntries = await Entry.find({ user: userId })
       .sort("-createdAt")
-      .limit(limit * 1)
-      .skip((page - 1) * limit)
       .populate("user", "name email avatar")
       .exec();
 
-    const count = await Entry.countDocuments({
-      user: userId,
-      $or: [
-        { title: { $regex: query, $options: "i" } },
-        { description: { $regex: query, $options: "i" } },
-        { "location.address": { $regex: query, $options: "i" } },
-      ],
+    const decryptedAll = decryptEntries(allEntries);
+
+    // Filter by search query (case-insensitive)
+    const lowerQuery = query.toLowerCase();
+    const matched = decryptedAll.filter(entry => {
+      const title = (entry.title || '').toLowerCase();
+      const description = (entry.description || '').toLowerCase();
+      const address = (entry.location?.address || '').toLowerCase();
+      return title.includes(lowerQuery) || description.includes(lowerQuery) || address.includes(lowerQuery);
     });
+
+    // Paginate results
+    const count = matched.length;
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const paginatedEntries = matched.slice((pageNum - 1) * limitNum, pageNum * limitNum);
 
     return res.json({
       success: true,
-      entries,
-      totalPages: Math.ceil(count / limit),
-      currentPage: page,
+      entries: paginatedEntries,
+      totalPages: Math.ceil(count / limitNum),
+      currentPage: pageNum,
       totalEntries: count,
     });
   } catch (error) {
@@ -485,10 +518,13 @@ const getNearbyEntries = async (req, res) => {
       .populate("user", "name email avatar")
       .exec();
 
+    // Decrypt entries before sending response
+    const decryptedEntries = decryptEntries(entries);
+
     return res.json({
       success: true,
-      entries,
-      totalEntries: entries.length,
+      entries: decryptedEntries,
+      totalEntries: decryptedEntries.length,
     });
   } catch (error) {
     console.error("Get nearby entries error:", error);
