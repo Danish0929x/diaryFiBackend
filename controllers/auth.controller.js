@@ -722,7 +722,7 @@ const updateProfile = async (req, res) => {
 
     // Update username if provided
     if (name && name.trim()) {
-      updateData.username = name.trim().toLowerCase();
+      updateData.username = name.trim();
     }
 
     // Update avatar if file uploaded
