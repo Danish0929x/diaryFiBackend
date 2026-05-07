@@ -3,7 +3,19 @@ const Journal = require("../models/journal.model");
 // Get all journals for the authenticated user
 exports.getJournals = async (req, res) => {
   try {
-    const journals = await Journal.find({ user: req.user.userId })
+    const { updatedSince } = req.query;
+    const filter = { user: req.user.userId };
+
+    if (updatedSince) {
+      const since = new Date(updatedSince);
+      if (!isNaN(since.getTime())) {
+        filter.updatedAt = { $gt: since };
+      }
+    } else {
+      filter.isDeleted = { $ne: true };
+    }
+
+    const journals = await Journal.find(filter)
       .sort({ createdAt: 1 }) // Sort oldest first, so "Journal" comes first for new users
       .populate("entryCount");
 
@@ -55,7 +67,22 @@ exports.getJournalById = async (req, res) => {
 // Create a new journal
 exports.createJournal = async (req, res) => {
   try {
-    const { name, description, color, icon } = req.body;
+    const { name, description, color, icon, clientLocalId } = req.body;
+
+    // Idempotency: return existing journal if clientLocalId already used
+    if (clientLocalId) {
+      const existing = await Journal.findOne({
+        user: req.user.userId,
+        clientLocalId,
+      }).populate("entryCount");
+      if (existing) {
+        return res.status(200).json({
+          success: true,
+          message: "Journal already exists (idempotent)",
+          journal: existing,
+        });
+      }
+    }
 
     if (!name || name.trim() === "") {
       return res.status(400).json({
@@ -92,6 +119,7 @@ exports.createJournal = async (req, res) => {
       description: description?.trim(),
       color: color || "#3B9EFF",
       icon,
+      ...(clientLocalId && { clientLocalId }),
     });
 
     await journal.save();
@@ -158,7 +186,7 @@ exports.updateJournal = async (req, res) => {
   }
 };
 
-// Delete a journal
+// Delete a journal (soft delete tombstone for offline-first sync)
 exports.deleteJournal = async (req, res) => {
   try {
     const { id } = req.params;
@@ -175,15 +203,17 @@ exports.deleteJournal = async (req, res) => {
       });
     }
 
-    // Optional: Remove journal reference from all entries
-    // Or you can set entries' journal field to null
+    // Unset journal reference on entries (don't soft-delete those)
     const Entry = require("../models/entry.model");
     await Entry.updateMany(
       { journal: id },
       { $unset: { journal: "" } }
     );
 
-    await Journal.deleteOne({ _id: id });
+    // Soft delete: mark as deleted instead of removing
+    journal.isDeleted = true;
+    journal.deletedAt = new Date();
+    await journal.save();
 
     res.status(200).json({
       success: true,

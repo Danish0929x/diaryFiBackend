@@ -5,8 +5,22 @@ const { encryptEntryFields, decryptEntryFields, decryptEntries } = require("../u
 // Create a new entry
 const createEntry = async (req, res) => {
   try {
-    const { title, description, location, createdAt, formatSpans, journal } = req.body;
+    const { title, description, location, createdAt, formatSpans, journal, clientLocalId } = req.body;
     const userId = req.user.userId; // From auth middleware
+
+    // Idempotency check: if clientLocalId is provided, check for existing entry
+    if (clientLocalId) {
+      const existing = await Entry.findOne({ user: userId, clientLocalId });
+      if (existing) {
+        await existing.populate("user", "name email avatar");
+        const decryptedExisting = decryptEntryFields(existing);
+        return res.status(200).json({
+          success: true,
+          message: "Entry already exists (idempotent)",
+          entry: decryptedExisting,
+        });
+      }
+    }
 
     // Get user to check premium status
     const User = require("../models/user.model");
@@ -99,6 +113,11 @@ const createEntry = async (req, res) => {
       isEncrypted: true,
     };
 
+    // Add clientLocalId for idempotency if provided
+    if (clientLocalId) {
+      entryData.clientLocalId = clientLocalId;
+    }
+
     // Encrypt text fields before saving to database
     encryptEntryFields(entryData);
 
@@ -140,7 +159,7 @@ const createEntry = async (req, res) => {
 const getUserEntries = async (req, res) => {
   try {
     const userId = req.user.userId;
-    const { page = 1, limit = 10, sort = "-createdAt", journal } = req.query;
+    const { page = 1, limit = 10, sort = "-createdAt", journal, updatedSince } = req.query;
 
     // Build query filter
     const filter = { user: userId };
@@ -148,6 +167,17 @@ const getUserEntries = async (req, res) => {
     // If journal parameter is provided and not 'all', filter by journal
     if (journal && journal !== 'all') {
       filter.journal = journal;
+    }
+
+    // Incremental sync: include tombstones (isDeleted=true) when updatedSince is provided
+    if (updatedSince) {
+      const since = new Date(updatedSince);
+      if (!isNaN(since.getTime())) {
+        filter.updatedAt = { $gt: since };
+      }
+    } else {
+      // Default behavior: hide deleted entries
+      filter.isDeleted = { $ne: true };
     }
 
     const entries = await Entry.find(filter)
@@ -345,7 +375,7 @@ const updateEntry = async (req, res) => {
   }
 };
 
-// Delete an entry
+// Delete an entry (soft delete tombstone for offline-first sync)
 const deleteEntry = async (req, res) => {
   try {
     const { id } = req.params;
@@ -360,7 +390,7 @@ const deleteEntry = async (req, res) => {
       });
     }
 
-    // Delete all associated media from Cloudinary (decrypt publicId first)
+    // Purge media from Cloudinary even on soft delete (saves storage)
     if (entry.media && entry.media.length > 0) {
       const { decrypt } = require("../utils/encryption");
       const deletePromises = entry.media.map((media) => {
@@ -372,7 +402,11 @@ const deleteEntry = async (req, res) => {
       await Promise.all(deletePromises);
     }
 
-    await Entry.findByIdAndDelete(id);
+    // Soft delete: mark as deleted instead of removing
+    entry.isDeleted = true;
+    entry.deletedAt = new Date();
+    entry.media = []; // Clear media array since files are purged
+    await entry.save();
 
     return res.json({
       success: true,

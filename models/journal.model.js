@@ -28,6 +28,20 @@ const journalSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
+    clientLocalId: {
+      type: String,
+      sparse: true,
+      index: true,
+    },
   },
   {
     timestamps: true,
@@ -36,6 +50,9 @@ const journalSchema = new mongoose.Schema(
 
 // Index for faster user queries
 journalSchema.index({ user: 1, createdAt: -1 });
+
+// Index for incremental sync (updatedSince queries)
+journalSchema.index({ user: 1, updatedAt: -1 });
 
 // Virtual for entry count
 journalSchema.virtual("entryCount", {

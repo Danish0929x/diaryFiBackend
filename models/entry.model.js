@@ -83,6 +83,22 @@ const entrySchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    // Soft delete tombstone for offline-first sync
+    isDeleted: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
+    // Client-generated UUID for idempotent creates from offline sync queue
+    clientLocalId: {
+      type: String,
+      sparse: true,
+      index: true,
+    },
     // Explicitly defined so it can be updated (timestamps:true makes it immutable by default)
     createdAt: {
       type: Date,
@@ -99,6 +115,9 @@ entrySchema.index({ "location.coordinates": "2dsphere" });
 
 // Index for faster user queries
 entrySchema.index({ user: 1, createdAt: -1 });
+
+// Index for incremental sync (updatedSince queries)
+entrySchema.index({ user: 1, updatedAt: -1 });
 
 // Virtual for media count
 entrySchema.virtual("mediaCount").get(function () {
