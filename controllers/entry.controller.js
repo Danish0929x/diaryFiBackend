@@ -248,7 +248,7 @@ const updateEntry = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.userId;
-    const { title, description, location, formatSpans, createdAt } = req.body;
+    const { title, description, location, formatSpans, createdAt, journal } = req.body;
 
     const entry = await Entry.findOne({ _id: id, user: userId });
 
@@ -331,6 +331,16 @@ const updateEntry = async (req, res) => {
       const parsedDate = new Date(createdAt);
       if (!isNaN(parsedDate.getTime())) {
         entry.createdAt = parsedDate;
+      }
+    }
+
+    // Update journal assignment if provided. An empty string or the literal
+    // "null" clears the journal so the entry returns to "All Entries".
+    if (journal !== undefined) {
+      if (journal === null || journal === "" || journal === "null") {
+        entry.journal = undefined;
+      } else {
+        entry.journal = journal;
       }
     }
 
