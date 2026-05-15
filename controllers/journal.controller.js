@@ -104,7 +104,7 @@ exports.createJournal = async (req, res) => {
 
     // Check journal limit for free users (3 journals max)
     if (!user.isPremium) {
-      const journalCount = await Journal.countDocuments({ user: req.user.userId });
+      const journalCount = await Journal.countDocuments({ user: req.user.userId, isDeleted: { $ne: true } });
       if (journalCount >= 3) {
         return res.status(403).json({
           success: false,
@@ -186,7 +186,7 @@ exports.updateJournal = async (req, res) => {
   }
 };
 
-// Delete a journal (soft delete tombstone for offline-first sync)
+// Delete a journal and all its entries
 exports.deleteJournal = async (req, res) => {
   try {
     const { id } = req.params;
@@ -203,21 +203,16 @@ exports.deleteJournal = async (req, res) => {
       });
     }
 
-    // Unset journal reference on entries (don't soft-delete those)
+    // Delete all entries associated with this journal
     const Entry = require("../models/entry.model");
-    await Entry.updateMany(
-      { journal: id },
-      { $unset: { journal: "" } }
-    );
+    await Entry.deleteMany({ journal: id });
 
-    // Soft delete: mark as deleted instead of removing
-    journal.isDeleted = true;
-    journal.deletedAt = new Date();
-    await journal.save();
+    // Hard delete: remove the journal document entirely
+    await Journal.deleteOne({ _id: id });
 
     res.status(200).json({
       success: true,
-      message: "Journal deleted successfully",
+      message: "Journal and all its entries deleted successfully",
     });
   } catch (error) {
     console.error("Error deleting journal:", error);
