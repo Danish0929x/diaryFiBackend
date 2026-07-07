@@ -49,8 +49,12 @@ const getAppStoreDownloads = async () => {
     const appStorePrivateKeyPath = process.env.APPSTORE_PRIVATE_KEY_PATH;
     const appStoreAppId = process.env.APPSTORE_APP_ID;
 
-    if (!appStoreKeyId || !appStoreIssuerId || !appStorePrivateKeyPath || !appStoreAppId) {
+    // Check if we have all required credentials (either file path or base64 key)
+    const hasPrivateKey = appStorePrivateKeyPath || process.env.APPSTORE_PRIVATE_KEY_BASE64;
+
+    if (!appStoreKeyId || !appStoreIssuerId || !hasPrivateKey || !appStoreAppId) {
       console.warn("App Store Connect API not fully configured");
+      console.warn(`KeyId: ${!!appStoreKeyId}, IssuerId: ${!!appStoreIssuerId}, PrivateKey: ${!!hasPrivateKey}, AppId: ${!!appStoreAppId}`);
       return {
         platform: "app_store",
         totalDownloads: 0,
