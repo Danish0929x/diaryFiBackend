@@ -62,8 +62,19 @@ const getAppStoreDownloads = async () => {
     }
 
     // Load App Store Connect private key
-    const privateKeyContent = fs.readFileSync(appStorePrivateKeyPath, "utf8");
-    console.log("✅ App Store private key loaded");
+    let privateKeyContent;
+
+    // Try to get private key from base64 environment variable first (for Render)
+    if (process.env.APPSTORE_PRIVATE_KEY_BASE64) {
+      privateKeyContent = Buffer.from(process.env.APPSTORE_PRIVATE_KEY_BASE64, 'base64').toString('utf-8');
+      console.log("✅ App Store private key loaded from environment (base64)");
+    } else if (appStorePrivateKeyPath) {
+      // Fall back to file path for local development
+      privateKeyContent = fs.readFileSync(appStorePrivateKeyPath, "utf8");
+      console.log("✅ App Store private key loaded from file");
+    } else {
+      throw new Error("No App Store private key available");
+    }
 
     // Generate JWT token for App Store Connect API
     const now = Math.floor(Date.now() / 1000);
