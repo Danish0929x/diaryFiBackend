@@ -1,2 +1,8 @@
 /node_modules
 .env
+
+# Credential files
+google-play-key.json
+*.pem
+*.key
+.env.local
