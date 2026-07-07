@@ -27,6 +27,7 @@ const corsOptions = {
       "http://192.168.1.1:8081", // Add your local IP if needed
       "https://diaryfitbackend.onrender.com",
       "https://diaryfibackend.onrender.com",
+      "https://diary-fi-admin.vercel.app", // Vercel admin dashboard
       "exp://localhost:19000", // Expo development
       "exp://192.168.1.1:19000", // Expo with local IP
       "https://appleid.apple.com", // Apple Sign-In
