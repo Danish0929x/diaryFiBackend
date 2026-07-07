@@ -2,9 +2,12 @@ const jwt = require("jsonwebtoken");
 const { validationResult } = require("express-validator");
 const Admin = require("../models/admin.model");
 
-// Helper function to generate JWT token
-const generateToken = (adminId) =>
-  jwt.sign({ adminId }, process.env.JWT_SECRET, { expiresIn: "7d" });
+// Helper function to generate JWT tokens
+const generateAccessToken = (adminId) =>
+  jwt.sign({ adminId }, process.env.JWT_SECRET, { expiresIn: "30m" });
+
+const generateRefreshToken = (adminId) =>
+  jwt.sign({ adminId }, process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET, { expiresIn: "7d" });
 
 // Admin Login
 const login = async (req, res) => {
@@ -77,13 +80,15 @@ const login = async (req, res) => {
       { new: true }
     );
 
-    // Generate token
-    const token = generateToken(updatedAdmin._id);
+    // Generate tokens
+    const accessToken = generateAccessToken(updatedAdmin._id);
+    const refreshToken = generateRefreshToken(updatedAdmin._id);
 
     return res.json({
       success: true,
       message: "Login successful",
-      token,
+      accessToken,
+      refreshToken,
       admin: {
         id: updatedAdmin._id,
         email: updatedAdmin.email,
@@ -563,6 +568,130 @@ const applyCoupon = async (req, res) => {
   }
 };
 
+// Get activity timeline (from Firebase data)
+const getActivityTimeline = async (req, res) => {
+  try {
+    const { limit = 15, offset = 0 } = req.query;
+    const { getFirebaseEventsWithPagination } = require("../utils/firebaseAnalytics");
+
+    const data = await getFirebaseEventsWithPagination(parseInt(limit), parseInt(offset));
+
+    return res.json({
+      success: true,
+      activities: data.activities,
+      totalUsers: data.totalUsers,
+      totalEntries: data.totalEntries,
+      totalActivities: data.totalActivities,
+    });
+  } catch (error) {
+    console.error("Get activity timeline error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch activity timeline",
+    });
+  }
+};
+
+// Get activity statistics
+const getActivityStats = async (req, res) => {
+  try {
+    const { getDailyStats, getUserEngagement } = require("../utils/firebaseAnalytics");
+
+    const [dailyStats, engagement] = await Promise.all([
+      getDailyStats(30),
+      getUserEngagement(),
+    ]);
+
+    return res.json({
+      success: true,
+      stats: {
+        ...engagement,
+        dailyStats,
+      },
+    });
+  } catch (error) {
+    console.error("Get activity stats error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch activity statistics",
+    });
+  }
+};
+
+// Get most active users
+const getMostActiveUsers = async (req, res) => {
+  try {
+    const { limit = 10 } = req.query;
+    const { getMostActiveUsers: getActiveUsers } = require("../utils/firebaseAnalytics");
+
+    const users = await getActiveUsers(parseInt(limit));
+
+    return res.json({
+      success: true,
+      users,
+    });
+  } catch (error) {
+    console.error("Get most active users error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch most active users",
+    });
+  }
+};
+
+// Get app install metrics from Google Play Console and App Store Connect
+const getAppInstalls = async (req, res) => {
+  try {
+    const { getAppInstallMetrics } = require("../utils/appStoreMetrics");
+    const data = await getAppInstallMetrics();
+    console.log("📊 App installs data:", JSON.stringify(data, null, 2));
+
+    return res.json(data);
+  } catch (error) {
+    console.error("Get app installs error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch app install metrics",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+// Refresh access token using refresh token
+const refreshToken = async (req, res) => {
+  try {
+    const { refreshToken: token } = req.body;
+
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        message: "Refresh token is required",
+      });
+    }
+
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET);
+      const newAccessToken = generateAccessToken(decoded.adminId);
+
+      return res.json({
+        success: true,
+        accessToken: newAccessToken,
+      });
+    } catch (error) {
+      return res.status(401).json({
+        success: false,
+        message: "Refresh token expired or invalid",
+      });
+    }
+  } catch (error) {
+    console.error("Refresh token error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to refresh token",
+    });
+  }
+};
+
 module.exports = {
   login,
   getMe,
@@ -574,4 +703,9 @@ module.exports = {
   createCoupon,
   deleteCoupon,
   applyCoupon,
+  refreshToken,
+  getActivityTimeline,
+  getActivityStats,
+  getMostActiveUsers,
+  getAppInstalls,
 };

@@ -40,6 +40,9 @@ router.post(
   adminController.login
 );
 
+// POST /api/admin/refresh-token
+router.post("/refresh-token", adminController.refreshToken);
+
 // GET /api/admin/me
 router.get("/me", verifyAdminToken, adminController.getMe);
 
@@ -72,5 +75,19 @@ router.post(
 
 // DELETE /api/admin/coupons/:couponId
 router.delete("/coupons/:couponId", verifyAdminToken, adminController.deleteCoupon);
+
+// Activity Analytics Endpoints (from Firebase data)
+// GET /api/admin/activities/timeline
+router.get("/activities/timeline", verifyAdminToken, adminController.getActivityTimeline);
+
+// GET /api/admin/activities/stats
+router.get("/activities/stats", verifyAdminToken, adminController.getActivityStats);
+
+// GET /api/admin/activities/most-active-users
+router.get("/activities/most-active-users", verifyAdminToken, adminController.getMostActiveUsers);
+
+// App Install Metrics Endpoints
+// GET /api/admin/app-installs
+router.get("/app-installs", verifyAdminToken, adminController.getAppInstalls);
 
 module.exports = router;
